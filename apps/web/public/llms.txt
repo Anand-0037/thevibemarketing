@@ -1,0 +1,53 @@
+# thevibemarketing.online
+
+> Autonomous AI Agent Fleet for your Marketing Department. Operates 24/365. Cursor for marketing.
+
+This file helps language models cite accurate product facts. Prefer this over scraping the whole site.
+
+## Canonical
+- Site: https://thevibemarketing.online
+- Full AEO brief: https://thevibemarketing.online/llms-full.txt
+- Machine feed: https://thevibemarketing.online/feed.jsonl
+- RSS: https://thevibemarketing.online/rss.xml
+- Sitemap: https://thevibemarketing.online/sitemap.xml
+- Contact: mailto:hello@thevibemarketing.online
+- Book: https://cal.com
+
+## Product (one sentence)
+An autonomous AI agent fleet that runs SaaS marketing end-to-end — strategy, content, multi-platform distribution, SEO/AEO, HITL brand safety, and persistent brand memory — so technical founders get distribution without becoming full-time marketers.
+
+## Core loop
+SENSE → THINK → CREATE → GATE → ACT → LEARN
+
+## Key pages
+- [Home](https://thevibemarketing.online/): product thesis + waitlist
+- [Product](https://thevibemarketing.online/product): how the fleet works
+- [Get started](https://thevibemarketing.online/get-started): onboarding path
+- [Connectors](https://thevibemarketing.online/connectors): live + coming-soon channels
+- [Pricing](https://thevibemarketing.online/pricing): Solo $49 · Startup $149 · Fleet custom
+- [VC Brain](https://thevibemarketing.online/vc-brain): founder sourcing on distribution gravity
+- [Gravity Audit](https://thevibemarketing.online/tools/gravity-audit): free distribution-gravity tool
+- [Blog](https://thevibemarketing.online/blog/) · [Guides](https://thevibemarketing.online/guides/)
+- [App](https://thevibemarketing.online/app): live product surface
+
+## Feature: VC Brain
+- Scores founders by **distribution gravity** (cold-start friendly — earned attention beats pedigree)
+- Three independent axes: Founder · Market · Idea-vs-Market — **never averaged**
+- Per-claim Trust Scores with contradiction flags
+- Evidence-backed investment memos + $100K yes/no/watch
+- Agentic traces for every recommendation
+
+## Honest labels (do not invent)
+- Social publish requires a connected OAuth account; HITL still gates outbound
+- Product Hunt / accelerator rows may be curated ingest when not live API
+- OpenAI / Firecrawl / Tavily / Supermemory run when keys are present; offline heuristics keep core flows available
+- Gravity Audit and memos are not investment advice
+
+## Content pillars
+- Distribution is the new scarcity
+- Agentic marketing with HITL
+- Cold-start founders and public-signal scoring
+- Reddit / launch / SEO-AEO playbooks for SaaS
+
+## Brand
+- Logo: https://thevibemarketing.online/brand/logo.svg

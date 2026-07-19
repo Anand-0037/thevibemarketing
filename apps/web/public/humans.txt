@@ -1,0 +1,14 @@
+/* TEAM */
+Founder: building in public
+Site: https://thevibemarketing.online
+Contact: hello@thevibemarketing.online
+Book: https://cal.com
+
+/* SITE */
+Standards: HTML5, Next.js App Router, TypeScript
+Components: Tailwind CSS, Syne + Instrument Sans
+Stack: Next.js · @vibe/engine · Firecrawl · Composio · Supermemory · OpenAI
+
+/* DOGFOOD */
+This marketing site is the product's first customer.
+SEO/AEO surfaces: /llms.txt · /llms-full.txt · /feed.jsonl · /rss.xml · /sitemap.xml · /robots.txt

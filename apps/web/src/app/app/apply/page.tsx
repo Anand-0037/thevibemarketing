@@ -1,0 +1,237 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
+import { demoDefaultsEnabled } from "@/lib/demo";
+
+const DEMO = demoDefaultsEnabled();
+
+type FirstPass = {
+  pass: boolean;
+  reasons: string[];
+  checks: Array<{ name: string; ok: boolean; detail: string }>;
+};
+
+export default function ApplyPage() {
+  const [status, setStatus] = useState<string | null>(null);
+  const [founderId, setFounderId] = useState<string | null>(null);
+  const [firstPass, setFirstPass] = useState<FirstPass | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setStatus("Submitting…");
+    setFirstPass(null);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const deckUrl = String(fd.get("deck_url") || "").trim();
+    const file = fd.get("deck_file");
+    const hasFile =
+      file && typeof file === "object" && "size" in file && (file as File).size > 0;
+    if (!deckUrl && !hasFile) {
+      setStatus("Provide a deck URL or upload a PDF");
+      setSubmitting(false);
+      return;
+    }
+    if (hasFile) {
+      const f = file as File;
+      if (f.size > 8 * 1024 * 1024) {
+        setStatus("Deck file must be under 8MB");
+        setSubmitting(false);
+        return;
+      }
+      if (f.type && f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
+        setStatus("Deck upload must be a PDF");
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/apply", {
+        method: "POST",
+        body: fd,
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        founder_id?: string;
+        note?: string;
+        first_pass?: FirstPass;
+        ok?: boolean;
+        deck_uploaded?: boolean;
+      };
+      if (data.first_pass) setFirstPass(data.first_pass);
+      if (!res.ok && !data.founder_id) {
+        setStatus(data.error || "Submit failed");
+        return;
+      }
+      setFounderId(data.founder_id ?? null);
+      setStatus(
+        data.note ||
+          (data.deck_uploaded
+            ? "Application received (deck uploaded)"
+            : "Application received"),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="section-label mb-2">Inbound</p>
+      <h1 className="font-display text-3xl font-bold tracking-tight">
+        Apply for a $100K check
+      </h1>
+      <p className="mt-2 max-w-xl text-sm text-muted">
+        Minimum bar: company name + deck (URL or PDF upload). First-pass filter
+        runs before full 3-axis analysis.
+      </p>
+
+      <form onSubmit={(e) => void onSubmit(e)} className="mt-8 max-w-lg space-y-4">
+        <div>
+          <label htmlFor="company_name" className="mb-1 block text-sm text-muted">
+            Company name
+          </label>
+          <input
+            id="company_name"
+            name="company_name"
+            required
+            className="input-field focus-ring"
+            placeholder="Acme Labs"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.product.company : undefined}
+          />
+        </div>
+        <div>
+          <label htmlFor="deck_url" className="mb-1 block text-sm text-muted">
+            Deck URL
+          </label>
+          <input
+            id="deck_url"
+            name="deck_url"
+            type="url"
+            className="input-field focus-ring"
+            placeholder="https://…"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.portfolio_url : undefined}
+          />
+        </div>
+        <div>
+          <label htmlFor="deck_file" className="mb-1 block text-sm text-muted">
+            Or upload deck (PDF)
+          </label>
+          <input
+            id="deck_file"
+            name="deck_file"
+            type="file"
+            accept=".pdf,application/pdf"
+            className="input-field focus-ring text-sm file:mr-3 file:border-0 file:bg-accent/20 file:px-3 file:py-1 file:text-accent"
+          />
+          <p className="mt-1 text-xs text-muted">
+            PDF only · magic-byte checked · max 8MB upload / 15MB remote URL.
+            Stored under data/uploads (ephemeral on serverless).
+          </p>
+        </div>
+        <div>
+          <label htmlFor="founder_name" className="mb-1 block text-sm text-muted">
+            Founder name
+          </label>
+          <input
+            id="founder_name"
+            name="founder_name"
+            className="input-field focus-ring"
+            placeholder="Founder name"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.name : undefined}
+          />
+        </div>
+        <div>
+          <label htmlFor="oneliner" className="mb-1 block text-sm text-muted">
+            One-liner
+          </label>
+          <input
+            id="oneliner"
+            name="oneliner"
+            required
+            className="input-field focus-ring"
+            placeholder="One sentence on what you build"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.product.oneliner : undefined}
+          />
+        </div>
+        <div>
+          <label htmlFor="sector" className="mb-1 block text-sm text-muted">
+            Sector
+          </label>
+          <input
+            id="sector"
+            name="sector"
+            className="input-field focus-ring"
+            placeholder="AI marketing"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.product.sector : undefined}
+          />
+        </div>
+        <button
+          type="submit"
+          className="btn-primary focus-ring"
+          disabled={submitting}
+        >
+          {submitting ? "Submitting…" : "Submit application"}
+        </button>
+      </form>
+
+      {firstPass ? (
+        <div
+          className={`panel mt-6 max-w-lg p-4 ${
+            firstPass.pass ? "border-ok/40" : "border-danger/40"
+          }`}
+          role="status"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-accent">
+            First-pass {firstPass.pass ? "PASS" : "FAIL"}
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-muted">
+            {firstPass.checks.map((c) => (
+              <li key={c.name}>
+                {c.ok ? "✓" : "✗"} {c.name}: {c.detail}
+              </li>
+            ))}
+          </ul>
+          {!firstPass.pass ? (
+            <p className="mt-2 text-sm text-danger">
+              {firstPass.reasons.join(" · ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {status ? (
+        <p className="mt-4 text-sm text-ok" role="status">
+          {status}
+        </p>
+      ) : null}
+      {founderId ? (
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href={`/app/founders/${founderId}`}
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+          >
+            Open profile
+          </Link>
+          <Link
+            href={`/app/founders/${founderId}?screen=1`}
+            className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+          >
+            Run 3-axis screen
+          </Link>
+          <Link
+            href="/app/radar"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+          >
+            Back to radar
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
