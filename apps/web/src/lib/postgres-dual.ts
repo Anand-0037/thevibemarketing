@@ -22,11 +22,15 @@ import type {
 import { getWorkspaceOwnerId } from "./workspace-context";
 
 function dualEnabled(): boolean {
-  return (
-    process.env.USE_POSTGRES_DUAL === "1" &&
+  const hasCreds =
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()) &&
-    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim())
-  );
+    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
+  if (!hasCreds) return false;
+  // Explicit opt-out
+  if (process.env.USE_POSTGRES_DUAL === "0") return false;
+  // Explicit on, or Vercel (serverless /tmp is not durable across instances)
+  if (process.env.USE_POSTGRES_DUAL === "1") return true;
+  return Boolean(process.env.VERCEL);
 }
 
 let admin: SupabaseClient | null = null;
@@ -70,17 +74,50 @@ async function ensureWorkspace(sb: SupabaseClient): Promise<string | null> {
     return envWs;
   }
 
-  const { data: existing } = await sb
+  const { data: existingRows } = await sb
     .from("workspaces")
-    .select("id")
+    .select("id, thesis")
     .eq("kind", "fund")
     .eq("owner_id", ownerId)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (existing?.id) {
-    workspaceByOwner.set(ownerId, existing.id as string);
-    return existing.id as string;
+    .order("created_at", { ascending: true });
+
+  if (existingRows?.length) {
+    // Prefer the workspace that already has founders (race can create empties).
+    let bestId = existingRows[0]!.id as string;
+    let bestCount = -1;
+    let thesisFromSibling: unknown = null;
+    for (const row of existingRows) {
+      if (row.thesis && !thesisFromSibling) thesisFromSibling = row.thesis;
+      const { count } = await sb
+        .from("founders")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", row.id);
+      const n = count ?? 0;
+      if (n > bestCount) {
+        bestCount = n;
+        bestId = row.id as string;
+      }
+    }
+    const best = existingRows.find((r) => r.id === bestId);
+    if (thesisFromSibling && best && !best.thesis) {
+      await sb
+        .from("workspaces")
+        .update({ thesis: thesisFromSibling })
+        .eq("id", bestId);
+    }
+    // Drop empty duplicate fund workspaces for this owner (keep best).
+    for (const row of existingRows) {
+      if (row.id === bestId) continue;
+      const { count } = await sb
+        .from("founders")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", row.id);
+      if ((count ?? 0) === 0) {
+        await sb.from("workspaces").delete().eq("id", row.id);
+      }
+    }
+    workspaceByOwner.set(ownerId, bestId);
+    return bestId;
   }
 
   const { data: created, error } = await sb
@@ -93,6 +130,19 @@ async function ensureWorkspace(sb: SupabaseClient): Promise<string | null> {
     .select("id")
     .single();
   if (error || !created?.id) {
+    // Concurrent create race — re-select the oldest fund workspace.
+    const { data: again } = await sb
+      .from("workspaces")
+      .select("id")
+      .eq("kind", "fund")
+      .eq("owner_id", ownerId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (again?.id) {
+      workspaceByOwner.set(ownerId, again.id as string);
+      return again.id as string;
+    }
     console.error("[postgres-dual] workspace:", error?.message);
     return null;
   }
@@ -111,11 +161,30 @@ function contentHash(source: string, url: string | undefined, payload: unknown):
     .slice(0, 32);
 }
 
-export async function dualWriteSignal(signal: Signal): Promise<void> {
+function requireDualAdmin(): SupabaseClient {
   const sb = getAdmin();
-  if (!sb) return;
+  if (!sb) {
+    throw new Error(
+      "[postgres-dual] service role / USE_POSTGRES_DUAL not configured",
+    );
+  }
+  return sb;
+}
+
+async function requireWorkspace(sb: SupabaseClient): Promise<string> {
   const ws = await ensureWorkspace(sb);
-  if (!ws) return;
+  if (!ws) {
+    throw new Error(
+      "[postgres-dual] workspace missing — auth owner context required",
+    );
+  }
+  return ws;
+}
+
+export async function dualWriteSignal(signal: Signal): Promise<void> {
+  if (!dualEnabled()) return;
+  const sb = requireDualAdmin();
+  const ws = await requireWorkspace(sb);
   const { error } = await sb.from("signals").upsert(
     {
       workspace_id: ws,
@@ -433,7 +502,13 @@ export async function fetchStoreBundleFromPostgres(): Promise<StoreData | null> 
   if (scErr) console.error("[postgres-dual] hydrate screenings:", scErr.message);
   if (mErr) console.error("[postgres-dual] hydrate memos:", mErr.message);
   if (tErr) console.error("[postgres-dual] hydrate traces:", tErr.message);
-  if (!founders?.length) return null;
+  const hasAny =
+    (founders?.length ?? 0) > 0 ||
+    (products?.length ?? 0) > 0 ||
+    (screenRuns?.length ?? 0) > 0 ||
+    (memos?.length ?? 0) > 0 ||
+    Boolean(workspace?.thesis);
+  if (!hasAny) return null;
 
   const historyByFounder = new Map<
     string,
@@ -450,7 +525,7 @@ export async function fetchStoreBundleFromPostgres(): Promise<StoreData | null> 
     historyByFounder.set(fid, list);
   }
 
-  const mappedFounders: Founder[] = founders.map((row) => {
+  const mappedFounders: Founder[] = (founders ?? []).map((row) => {
     const g = (row.gravity ?? {}) as Founder["gravity"];
     const history = historyByFounder.get(row.id as string);
     return {

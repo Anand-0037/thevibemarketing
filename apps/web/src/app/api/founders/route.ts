@@ -1,7 +1,9 @@
 import {
+  composeFounderScoreFromGravity,
   evaluateConviction,
   formatFunnelClock,
   hoursInFunnel,
+  inferTrackRecord,
   momentumDelta,
   scoreHistoryTrend,
   softSkillBands,
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
     const hideMiss = url.searchParams.get("hide_miss") === "1";
     const sort = url.searchParams.get("sort") || "score"; // score | momentum
 
-    let founders = await store.listFounders();
+    const founders = await store.listFounders();
 
     const data = await Promise.all(
       founders.map(async (f) => {
@@ -49,6 +51,10 @@ export async function GET(req: Request) {
         });
         const contradictions = (f.claims ?? []).filter((c) => c.contradiction)
           .length;
+        const cold_start = composeFounderScoreFromGravity(f.gravity, {
+          track_record: inferTrackRecord(f),
+          coherence: sourceCount >= 2 ? 70 : 45,
+        }).cold_start;
         return {
           ...f,
           product,
@@ -75,6 +81,7 @@ export async function GET(req: Request) {
           conviction_score: conviction.score,
           conviction_reasons: conviction.reasons,
           trait_bands,
+          cold_start,
         };
       }),
     );

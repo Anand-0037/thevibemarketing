@@ -76,13 +76,19 @@ export default function GravityAuditPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const data = (await res.json()) as AuditResult;
-        if (!res.ok || data.error) {
+        const { readJsonSafe } = await import("@/lib/safe-json");
+        const { data } = await readJsonSafe<AuditResult>(res);
+        if (!res.ok || data?.error) {
           setResult(null);
           setError(
-            [data.error, data.hint].filter(Boolean).join(" — ") ||
+            [data?.error, data?.hint].filter(Boolean).join(" — ") ||
               `Request failed (${res.status})`,
           );
+          return;
+        }
+        if (!data) {
+          setResult(null);
+          setError(`Request failed (${res.status})`);
           return;
         }
         setResult(data);
@@ -145,8 +151,8 @@ export default function GravityAuditPage() {
           <span>
             Deep public search — GitHub search + HN Algolia
             {"; "}
-            Firecrawl + Tavily when keys are set in{" "}
-            <span className="font-mono text-[11px] text-ink">.env</span>
+            Firecrawl + Tavily when those research providers are configured on
+            the server
           </span>
         </label>
 

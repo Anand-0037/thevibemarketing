@@ -5,6 +5,8 @@ import { FormEvent, useState } from "react";
 import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
 import { demoDefaultsEnabled } from "@/lib/demo";
 import type { BrandContext } from "@/lib/marketing-store";
+import { readJsonSafe } from "@/lib/safe-json";
+import { normalizeHttpUrl } from "@/lib/url";
 
 const DEMO = demoDefaultsEnabled();
 
@@ -69,7 +71,12 @@ export default function OnboardingPage() {
     setError(null);
     setNote(null);
     const fd = new FormData(e.currentTarget);
-    const url = String(fd.get("url") || "");
+    const url = normalizeHttpUrl(String(fd.get("url") || ""));
+    if (!url) {
+      setError("Enter a valid URL (e.g. kaggleingest.com or https://…)");
+      setSaving(false);
+      return;
+    }
     const draft = inferBrandFromUrl(url);
 
     try {
@@ -78,27 +85,34 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      if (scrapeRes.ok) {
-        const data = (await scrapeRes.json()) as {
-          brand: BrandContext;
-          note?: string;
-        };
-        setBrand(data.brand);
-        setNote(data.note ?? "Brand memory saved.");
+      const scrape = await readJsonSafe<{
+        brand?: BrandContext;
+        note?: string;
+        error?: string;
+      }>(scrapeRes);
+      if (scrapeRes.ok && scrape.data?.brand) {
+        setBrand(scrape.data.brand);
+        setNote(scrape.data.note ?? "Brand memory saved.");
         return;
       }
       const res = await fetch("/api/marketing/brand", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, url }),
       });
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        throw new Error(body.error || "Failed to save brand");
+      const saved = await readJsonSafe<{
+        brand?: BrandContext;
+        error?: string;
+      }>(res);
+      if (!res.ok || !saved.data?.brand) {
+        throw new Error(
+          saved.data?.error ||
+            scrape.data?.error ||
+            "Failed to save brand",
+        );
       }
-      const data = (await res.json()) as { brand: BrandContext };
-      setBrand(data.brand);
-      setNote("Saved pre-cached dogfood brand (Firecrawl offline/fail).");
+      setBrand(saved.data.brand);
+      setNote("Saved heuristic brand (Firecrawl offline/fail).");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {

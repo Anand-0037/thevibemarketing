@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { withOwnedStore } from "@/lib/with-store";
 import {
   openaiChatHealth,
@@ -60,8 +61,12 @@ export async function POST(
 
     const { id } = await ctx.params;
     const store = getStore();
+    const founder = await resolveFounder(store, id);
+    if (!founder) {
+      return NextResponse.json({ error: "Founder not found" }, { status: 404 });
+    }
     try {
-      const result = await runVcBrainPipeline(store, id);
+      const result = await runVcBrainPipeline(store, founder.id);
 
       // Optional language polish only — never blocks demo on quota/latency.
       const polish = await maybePolishSections(result.memo.sections);
@@ -94,8 +99,9 @@ export async function GET(
 
     const { id } = await ctx.params;
     const store = getStore();
-    const memo = await store.getLatestMemo(id);
+    const founder = await resolveFounder(store, id);
+    const memo = await store.getLatestMemo(founder?.id ?? id);
     if (!memo) return NextResponse.json({ error: "no memo" }, { status: 404 });
-    return NextResponse.json({ memo });
+    return NextResponse.json({ memo, founder_id: founder?.id ?? id });
   });
 }

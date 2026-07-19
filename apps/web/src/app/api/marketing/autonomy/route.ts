@@ -3,6 +3,7 @@ import {
   getMarketingStore,
   type AutonomyLevel,
 } from "@/lib/marketing-store";
+import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
 
@@ -15,31 +16,35 @@ const NOTES: Record<AutonomyLevel, string> = {
 };
 
 export async function GET() {
-  const store = getMarketingStore();
-  const autonomy = await store.getAutonomy();
-  return NextResponse.json({
-    autonomy,
-    note: NOTES[autonomy],
+  return withMarketingStore(async () => {
+    const store = getMarketingStore();
+    const autonomy = await store.getAutonomy();
+    return NextResponse.json({
+      autonomy,
+      note: NOTES[autonomy],
+    });
   });
 }
 
 export async function POST(req: Request) {
-  let body: { autonomy?: string };
-  try {
-    body = (await req.json()) as { autonomy?: string };
-  } catch {
-    return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
-  }
-  if (!body.autonomy || !LEVELS.has(body.autonomy as AutonomyLevel)) {
-    return NextResponse.json(
-      { error: 'autonomy must be "L1", "L2", or "L3"' },
-      { status: 400 },
-    );
-  }
-  const store = getMarketingStore();
-  const autonomy = await store.setAutonomy(body.autonomy as AutonomyLevel);
-  return NextResponse.json({
-    autonomy,
-    note: NOTES[autonomy],
+  return withMarketingStore(async () => {
+    let body: { autonomy?: string };
+    try {
+      body = (await req.json()) as { autonomy?: string };
+    } catch {
+      return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
+    }
+    if (!body.autonomy || !LEVELS.has(body.autonomy as AutonomyLevel)) {
+      return NextResponse.json(
+        { error: 'autonomy must be "L1", "L2", or "L3"' },
+        { status: 400 },
+      );
+    }
+    const store = getMarketingStore();
+    const autonomy = await store.setAutonomy(body.autonomy as AutonomyLevel);
+    return NextResponse.json({
+      autonomy,
+      note: NOTES[autonomy],
+    });
   });
 }

@@ -1,53 +1,37 @@
-# thevibemarketing.online
+# vibemarketer.fun
 
-> Autonomous AI Agent Fleet for your Marketing Department. Operates 24/365. Cursor for marketing.
+> Cursor for marketing — brand brief, campaigns, and approval-gated drafts. Same engine powers VC Brain founder sourcing (Hack-Nation Challenge 02).
 
 This file helps language models cite accurate product facts. Prefer this over scraping the whole site.
 
 ## Canonical
-- Site: https://thevibemarketing.online
-- Full AEO brief: https://thevibemarketing.online/llms-full.txt
-- Machine feed: https://thevibemarketing.online/feed.jsonl
-- RSS: https://thevibemarketing.online/rss.xml
-- Sitemap: https://thevibemarketing.online/sitemap.xml
-- Contact: mailto:hello@thevibemarketing.online
-- Book: https://cal.com
+- Site: https://www.vibemarketer.fun
+- Full AEO brief: https://www.vibemarketer.fun/llms-full.txt
+- Machine feed: https://www.vibemarketer.fun/feed.jsonl
+- RSS: https://www.vibemarketer.fun/rss.xml
+- Sitemap: https://www.vibemarketer.fun/sitemap.xml
+- Contact: mailto:anandcollege07@gmail.com
+- Book: https://calendly.com/0xanand
 
 ## Product (one sentence)
-An autonomous AI agent fleet that runs SaaS marketing end-to-end — strategy, content, multi-platform distribution, SEO/AEO, HITL brand safety, and persistent brand memory — so technical founders get distribution without becoming full-time marketers.
+An AI marketing operating system for technical SaaS founders — paste a product URL, get a brand brief, a seven-day campaign plan, and X / LinkedIn / Reddit drafts you approve before anything queues to publish. VC Brain is the Challenge 02 investor sourcing surface on the same engine.
 
 ## Core loop
 SENSE → THINK → CREATE → GATE → ACT → LEARN
 
 ## Key pages
-- [Home](https://thevibemarketing.online/): product thesis + waitlist
-- [Product](https://thevibemarketing.online/product): how the fleet works
-- [Get started](https://thevibemarketing.online/get-started): onboarding path
-- [Connectors](https://thevibemarketing.online/connectors): live + coming-soon channels
-- [Pricing](https://thevibemarketing.online/pricing): Solo $49 · Startup $149 · Fleet custom
-- [VC Brain](https://thevibemarketing.online/vc-brain): founder sourcing on distribution gravity
-- [Gravity Audit](https://thevibemarketing.online/tools/gravity-audit): free distribution-gravity tool
-- [Blog](https://thevibemarketing.online/blog/) · [Guides](https://thevibemarketing.online/guides/)
-- [App](https://thevibemarketing.online/app): live product surface
+- [Home](https://www.vibemarketer.fun/): product thesis + waitlist
+- [Product](https://www.vibemarketer.fun/product): how the fleet works
+- [Get started](https://www.vibemarketer.fun/get-started): onboarding path
+- [Connectors](https://www.vibemarketer.fun/connectors): live + coming-soon channels
+- [Pricing](https://www.vibemarketer.fun/pricing): early-access / waitlist-first pricing (confirm live page)
+- [VC Brain](https://www.vibemarketer.fun/vc-brain): founder sourcing on distribution gravity
+- [Gravity Audit](https://www.vibemarketer.fun/tools/gravity-audit): free distribution-gravity tool
+- [Blog](https://www.vibemarketer.fun/blog/) · [Guides](https://www.vibemarketer.fun/guides/)
 
-## Feature: VC Brain
-- Scores founders by **distribution gravity** (cold-start friendly — earned attention beats pedigree)
-- Three independent axes: Founder · Market · Idea-vs-Market — **never averaged**
-- Per-claim Trust Scores with contradiction flags
-- Evidence-backed investment memos + $100K yes/no/watch
-- Agentic traces for every recommendation
-
-## Honest labels (do not invent)
-- Social publish requires a connected OAuth account; HITL still gates outbound
-- Product Hunt / accelerator rows may be curated ingest when not live API
-- OpenAI / Firecrawl / Tavily / Supermemory run when keys are present; offline heuristics keep core flows available
-- Gravity Audit and memos are not investment advice
-
-## Content pillars
-- Distribution is the new scarcity
-- Agentic marketing with HITL
-- Cold-start founders and public-signal scoring
-- Reddit / launch / SEO-AEO playbooks for SaaS
-
-## Brand
-- Logo: https://thevibemarketing.online/brand/logo.svg
+## Honest limits
+- Identify live sources: GitHub, Hacker News, arXiv only
+- Product Hunt / accelerators / hackathons return empty until wired — never fabricated
+- Approve → queued until a connected provider confirms a post
+- $100K memo is decision-support, not an automated wire
+- Scoring math is deterministic; LLMs are used for extraction/synthesis only when configured

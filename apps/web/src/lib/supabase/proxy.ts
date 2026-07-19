@@ -18,6 +18,8 @@ function isPublicApi(path: string): boolean {
   ) {
     return true;
   }
+  // Ops smoke — no secrets, no provider spend (dual-write / migration readiness).
+  if (path === "/api/ready") return true;
   // /api/health/* is private — burns provider quota if public.
   return false;
 }

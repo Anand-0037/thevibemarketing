@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChannelIntel } from "@/components/ChannelIntel";
 import { ScoreBar } from "@/components/ScoreBar";
 import { VcBrainTeaser } from "@/components/VcBrainTeaser";
+import { readJsonSafe } from "@/lib/safe-json";
 
 type RadarFounder = {
   id: string;
@@ -79,22 +80,31 @@ export default function RadarPage() {
     setStatus(null);
     try {
       const res = await fetch("/api/ingest?limit=15", { method: "POST" });
-      const data = (await res.json()) as {
+      const { data } = await readJsonSafe<{
         error?: string;
         upserted_count?: number;
         auto_screened_count?: number;
         note?: string;
+        live_ok?: boolean;
         sources?: {
-          github?: { count: number };
-          hackernews?: { count: number };
-          producthunt?: { count: number };
-          arxiv?: { count: number };
-          accelerator?: { count: number };
-          hackathon?: { count: number };
+          github?: { count?: number; ok?: boolean; error?: string };
+          hackernews?: { count?: number; ok?: boolean; error?: string };
+          producthunt?: { count?: number; ok?: boolean; error?: string };
+          arxiv?: { count?: number; ok?: boolean; error?: string };
+          accelerator?: { count?: number };
+          hackathon?: { count?: number };
         };
-      };
-      if (!res.ok) throw new Error(data.error || "Ingest failed");
+      }>(res);
+      if (!res.ok) throw new Error(data?.error || `Ingest failed (${res.status})`);
+      if (!data) throw new Error("Ingest failed — empty response");
       const s = data.sources;
+      const sourceErrors = [
+        s?.github?.ok === false ? `GitHub: ${s.github.error || "failed"}` : null,
+        s?.hackernews?.ok === false
+          ? `HN: ${s.hackernews.error || "failed"}`
+          : null,
+        s?.arxiv?.ok === false ? `arXiv: ${s.arxiv.error || "failed"}` : null,
+      ].filter(Boolean);
       const auto =
         data.auto_screened_count && data.auto_screened_count > 0
           ? ` · auto-screened ${data.auto_screened_count}`
@@ -109,6 +119,13 @@ export default function RadarPage() {
           .filter(Boolean)
           .join(" · "),
       );
+      if (sourceErrors.length) {
+        setError(sourceErrors.join(" · "));
+      } else if (data.live_ok === false && !(data.upserted_count ?? 0)) {
+        setError(
+          "No live sources returned data. Set GITHUB_TOKEN on Vercel for reliable Identify.",
+        );
+      }
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ingest failed");
@@ -123,13 +140,14 @@ export default function RadarPage() {
     setStatus(null);
     try {
       const res = await fetch("/api/screen", { method: "POST" });
-      const data = (await res.json()) as {
+      const { data } = await readJsonSafe<{
         error?: string;
         count?: number;
         failed?: number;
         results?: Array<{ decision: string }>;
-      };
-      if (!res.ok) throw new Error(data.error || "Screen failed");
+      }>(res);
+      if (!res.ok) throw new Error(data?.error || `Screen failed (${res.status})`);
+      if (!data) throw new Error("Screen failed — empty response");
       const yes = data.results?.filter((r) => r.decision === "yes").length ?? 0;
       setStatus(
         `Screened ${data.count ?? 0} · ${yes} yes · ${data.failed ?? 0} failed first-pass/errors`,
@@ -151,9 +169,9 @@ export default function RadarPage() {
             Founder radar
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            Live Identify → Activate → Converge into Screening. Ranked by
-            Founder Score (distribution gravity). Axes never averaged. Persisted
-            to Supabase when dual-write is on.
+            Identify → Activate → Converge → Screen. Ranked by Founder Score
+            (distribution gravity). Axes never averaged. Live sources: GitHub,
+            Hacker News, arXiv.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -233,10 +251,11 @@ export default function RadarPage() {
       ) : founders.length === 0 ? (
         <div className="mt-10 space-y-6">
           <div className="panel p-8 text-center">
-            <p className="font-display text-xl font-semibold">Radar is empty</p>
+            <p className="font-display text-xl font-semibold">No candidates yet</p>
             <p className="mt-2 text-sm text-muted">
-              Pull live founders from GitHub, HN, arXiv, and more — or accept an
-              inbound apply. Nothing is pre-seeded.
+              Run Identify to fetch public candidates from GitHub, Hacker News
+              and arXiv. Each source reports Live, Empty, or Failed. Nothing is
+              pre-seeded — inbound apply is optional.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button

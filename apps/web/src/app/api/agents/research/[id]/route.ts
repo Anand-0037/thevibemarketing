@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDeepResearch, startRun } from "@vibe/engine";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { getStore } from "@/lib/store";
 import { withOwnedStore } from "@/lib/with-store";
 
@@ -17,12 +18,13 @@ export async function POST(
   return withOwnedStore(async () => {
     const { id } = await ctx.params;
     const store = getStore();
-    const founder = await store.getFounder(id);
+    const founder = await resolveFounder(store, id);
     if (!founder) {
       return NextResponse.json({ error: "Founder not found" }, { status: 404 });
     }
-    const product = await store.getProductForFounder(id);
-    const signals = await store.getSignalsFor(id);
+    const founderId = founder.id;
+    const product = await store.getProductForFounder(founderId);
+    const signals = await store.getSignalsFor(founderId);
     const { run_id } = startRun("deep_research");
 
     try {

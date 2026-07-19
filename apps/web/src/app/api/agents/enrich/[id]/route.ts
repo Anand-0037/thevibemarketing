@@ -1,5 +1,6 @@
 import { runAgentLanes } from "@vibe/engine";
 import { NextResponse } from "next/server";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { withOwnedStore } from "@/lib/with-store";
 import { getStore } from "@/lib/store";
 
@@ -15,11 +16,12 @@ export async function POST(
 
     const { id } = await ctx.params;
     const store = getStore();
-    const founder = await store.getFounder(id);
+    const founder = await resolveFounder(store, id);
     if (!founder) {
       return NextResponse.json({ error: "founder not found" }, { status: 404 });
     }
-    const product = await store.getProductForFounder(id);
+    const founderId = founder.id;
+    const product = await store.getProductForFounder(founderId);
     const fleet = await runAgentLanes({
       founder,
       product,
@@ -30,7 +32,7 @@ export async function POST(
       for (const sp of lane.signal_payloads ?? []) {
         await store.addSignal({
           entity_type: "founder",
-          entity_id: id,
+          entity_id: founderId,
           source: sp.source,
           url: sp.url,
           payload: sp.payload,
@@ -39,6 +41,6 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ ok: true, founder_id: id, ...fleet });
+    return NextResponse.json({ ok: true, founder_id: founderId, ...fleet });
   });
 }

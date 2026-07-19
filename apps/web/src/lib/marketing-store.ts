@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { dataPath } from "./paths";
+import { writableDataPath } from "./paths";
+import { getSupabaseAdmin, hasSupabaseAdmin } from "./supabase-admin";
+import { getWorkspaceOwnerId } from "./workspace-context";
 
 export type Platform = "x" | "linkedin" | "reddit";
 export type PostStatus =
@@ -111,60 +113,115 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function coerceMarketingData(parsed: Partial<MarketingData> | null | undefined): MarketingData {
+  const autonomy =
+    parsed?.autonomy === "L1" ||
+    parsed?.autonomy === "L2" ||
+    parsed?.autonomy === "L3"
+      ? parsed.autonomy
+      : "L1";
+  return {
+    brand: parsed?.brand ?? null,
+    posts: parsed?.posts ?? [],
+    loops: parsed?.loops ?? [],
+    autonomy,
+    publish_log: parsed?.publish_log ?? [],
+    campaign: parsed?.campaign ?? null,
+  };
+}
+
 export class MarketingStore {
   private data: MarketingData = emptyData();
   private loaded = false;
 
-  constructor(public readonly path: string = dataPath("marketing.json")) {}
+  constructor(
+    public readonly path: string = writableDataPath("marketing.json"),
+    public readonly ownerId: string = "anonymous",
+  ) {}
 
   static fromDefault(): MarketingStore {
-    return new MarketingStore(dataPath("marketing.json"));
+    const owner = getWorkspaceOwnerId()?.trim() || "anonymous";
+    const safe = owner.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
+    return new MarketingStore(
+      writableDataPath("marketing", `${safe}.json`),
+      owner,
+    );
   }
 
   async load(): Promise<MarketingData> {
+    // Prefer durable Supabase blob (Vercel-safe).
+    if (hasSupabaseAdmin() && this.ownerId !== "anonymous") {
+      try {
+        const sb = getSupabaseAdmin()!;
+        const { data, error } = await sb
+          .from("marketing_state")
+          .select("data")
+          .eq("owner_id", this.ownerId)
+          .maybeSingle();
+        if (error) {
+          console.error("[marketing-store] hydrate:", error.message);
+        } else if (data?.data) {
+          this.data = coerceMarketingData(data.data as Partial<MarketingData>);
+          this.loaded = true;
+          return this.data;
+        }
+        this.data = emptyData();
+        this.loaded = true;
+        return this.data;
+      } catch (e) {
+        console.error("[marketing-store] hydrate failed", e);
+        this.data = emptyData();
+        this.loaded = true;
+        return this.data;
+      }
+    }
+
     try {
       const raw = await readFile(this.path, "utf8");
-      const parsed = JSON.parse(raw) as Partial<MarketingData>;
-      const autonomy =
-        parsed.autonomy === "L1" ||
-        parsed.autonomy === "L2" ||
-        parsed.autonomy === "L3"
-          ? parsed.autonomy
-          : "L1";
-      this.data = {
-        brand: parsed.brand ?? null,
-        posts: parsed.posts ?? [],
-        loops: parsed.loops ?? [],
-        autonomy,
-        publish_log: parsed.publish_log ?? [],
-        campaign: parsed.campaign ?? null,
-      };
-    } catch (err: unknown) {
-      const code =
-        typeof err === "object" && err && "code" in err
-          ? (err as { code?: string }).code
-          : undefined;
-      if (code === "ENOENT") {
-        this.data = emptyData();
-        await this.save();
-      } else {
-        throw err;
-      }
+      this.data = coerceMarketingData(JSON.parse(raw) as Partial<MarketingData>);
+    } catch {
+      // Missing/corrupt local file — start empty; do not throw (breaks Studio GET).
+      this.data = emptyData();
     }
     this.loaded = true;
     return this.data;
   }
 
   async save(): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.${process.pid}.tmp`;
-    const body = JSON.stringify(this.data, null, 2);
-    await writeFile(tmp, body, "utf8");
-    await writeFile(this.path, body, "utf8");
+    if (hasSupabaseAdmin() && this.ownerId !== "anonymous") {
+      const sb = getSupabaseAdmin()!;
+      const { error } = await sb.from("marketing_state").upsert(
+        {
+          owner_id: this.ownerId,
+          data: this.data,
+          updated_at: nowIso(),
+        },
+        { onConflict: "owner_id" },
+      );
+      if (error) {
+        console.error("[marketing-store] save supabase:", error.message);
+        // Fall through to local best-effort so demo can continue
+      } else {
+        return;
+      }
+    }
+
     try {
-      await unlink(tmp);
-    } catch {
-      /* ignore */
+      await mkdir(dirname(this.path), { recursive: true });
+      const tmp = `${this.path}.${process.pid}.tmp`;
+      const body = JSON.stringify(this.data, null, 2);
+      await writeFile(tmp, body, "utf8");
+      await writeFile(this.path, body, "utf8");
+      try {
+        await unlink(tmp);
+      } catch {
+        /* ignore */
+      }
+    } catch (e) {
+      console.error(
+        "[marketing-store] local save skipped:",
+        e instanceof Error ? e.message : e,
+      );
     }
   }
 
@@ -215,7 +272,7 @@ export class MarketingStore {
     const brandSlug =
       post.brand ??
       this.data.brand?.name?.toLowerCase().replace(/\s+/g, "") ??
-      "thevibemarketing";
+      "vibemarketer";
 
     if (post.id) {
       const idx = this.data.posts.findIndex((p) => p.id === post.id);
@@ -355,11 +412,16 @@ export class MarketingStore {
   }
 }
 
-let singleton: MarketingStore | null = null;
+const singletons = new Map<string, MarketingStore>();
 
 export function getMarketingStore(): MarketingStore {
-  if (!singleton) singleton = MarketingStore.fromDefault();
-  return singleton;
+  const owner = getWorkspaceOwnerId()?.trim() || "anonymous";
+  let store = singletons.get(owner);
+  if (!store) {
+    store = MarketingStore.fromDefault();
+    singletons.set(owner, store);
+  }
+  return store;
 }
 
 /** Heuristic brand extract when Firecrawl is offline — used by /api/brand. */
@@ -387,18 +449,17 @@ export function heuristicBrandFromUrl(
 
   if (isSelf || isOperator) {
     return {
-      url: isSelf ? url : "https://vibemarketer.fun",
-      name: "thevibemarketing",
+      url: isSelf ? url : "https://www.vibemarketer.fun",
+      name: "vibemarketer",
       oneliner:
-        "Autonomous AI agent fleet for SaaS marketing — Cursor for marketing. Built by Anand Vashishtha (0xanand.tech).",
-      icp: "Solo SaaS founders and small technical teams who ship fast but lack distribution — especially AI/Web3 builders",
-      tone: "direct/technical, founder-native, no agency fluff — Anand's builder voice",
+        "AI marketing operating system for technical SaaS founders — brand brief, campaign plan, and approval-gated drafts.",
+      icp: "Solo SaaS founders and small technical teams who ship fast but lack distribution",
+      tone: "direct/technical, founder-native, no agency fluff",
       pillars: [
         "distribution is the scarce asset",
         "HITL brand safety",
         "persistent brand memory",
         "agentic loops not chat assistants",
-        "dogfood: Anand Vashishtha · @AnandVashisht15 · 0xanand.tech",
       ],
     };
   }

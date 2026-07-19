@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Checkout complete",
   path: "/checkout/success",
-  description: "Thanks for starting with thevibemarketing.",
+  description: "Thanks for starting with vibemarketer.",
 });
 
 export default function CheckoutSuccessPage() {

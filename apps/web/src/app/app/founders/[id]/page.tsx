@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Founder, Product, Screening, Signal } from "@vibe/engine";
 import { AxisPanel } from "@/components/AxisPanel";
@@ -10,6 +10,7 @@ import { ScreeningTheater } from "@/components/ScreeningTheater";
 import { TraceDrawer } from "@/components/TraceDrawer";
 import { TrustBadge } from "@/components/TrustBadge";
 import { emptyGravity } from "@/lib/normalize";
+import { readJsonSafe } from "@/lib/safe-json";
 
 type TraitBand = {
   trait: string;
@@ -36,10 +37,13 @@ type Detail = {
   };
   trait_bands?: TraitBand[];
   thesis_fit?: string;
+  cold_start?: boolean;
+  canonical_id?: string;
 };
 
 export default function FounderDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params.id;
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,14 +81,19 @@ export default function FounderDetailPage() {
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await fetch(`/api/founders/${id}`);
-    if (!res.ok) {
-      setError("Founder not found");
+    const res = await fetch(`/api/founders/${encodeURIComponent(id)}`);
+    const { data: body } = await readJsonSafe<Detail & { error?: string }>(res);
+    if (!res.ok || !body?.founder) {
+      setError(body?.error || "Founder not found");
       setData(null);
       return;
     }
-    setData((await res.json()) as Detail);
-  }, [id]);
+    setData(body);
+    // Canonicalize short slugs (/openclaw → /live_github_openclaw) so traces/memo links work.
+    if (body.canonical_id && body.canonical_id !== id) {
+      router.replace(`/app/founders/${body.canonical_id}`);
+    }
+  }, [id, router]);
 
   useEffect(() => {
     void load();
@@ -631,7 +640,7 @@ export default function FounderDetailPage() {
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <TrustBadge confidence={founder.score_confidence} />
-          {founder.score_confidence < 0.75 || g.abstain ? (
+          {data.cold_start ? (
             <span className="border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase text-accent">
               cold-start mode · track record weight redistributed
             </span>

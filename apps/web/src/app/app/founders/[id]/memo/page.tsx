@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Memo, Screening } from "@vibe/engine";
 import { AxisPanel } from "@/components/AxisPanel";
@@ -11,6 +11,7 @@ import { TrustBadge } from "@/components/TrustBadge";
 
 export default function MemoPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params.id;
   const [memo, setMemo] = useState<Memo | null>(null);
   const [screening, setScreening] = useState<Screening | null>(null);
@@ -27,27 +28,33 @@ export default function MemoPage() {
   const [within24h, setWithin24h] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
-    const detail = await fetch(`/api/founders/${id}`);
+    const detail = await fetch(`/api/founders/${encodeURIComponent(id)}`);
     if (detail.ok) {
       const d = (await detail.json()) as {
-        founder: { name: string };
+        founder: { name: string; id?: string };
         memo?: Memo | null;
         screening?: Screening | null;
         funnel_clock?: string;
         within_24h?: boolean;
+        canonical_id?: string;
       };
       setName(d.founder.name);
       if (d.memo) setMemo(d.memo);
       if (d.screening) setScreening(d.screening);
       setFunnelClock(d.funnel_clock ?? null);
       setWithin24h(d.within_24h ?? null);
+      const canonical = d.canonical_id ?? d.founder.id;
+      if (canonical && canonical !== id) {
+        router.replace(`/app/founders/${canonical}/memo`);
+        return;
+      }
     }
-    const res = await fetch(`/api/memo/${id}`);
+    const res = await fetch(`/api/memo/${encodeURIComponent(id)}`);
     if (res.ok) {
       const data = (await res.json()) as { memo: Memo };
       setMemo(data.memo);
     }
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
     void load();

@@ -5,6 +5,7 @@ import { FeatureGrid } from "@/components/FeatureGrid";
 import { HeroProductPreview } from "@/components/HeroProductPreview";
 import { JsonLd } from "@/components/JsonLd";
 import { LoopDiagram } from "@/components/LoopDiagram";
+import { StackPartners } from "@/components/StackPartners";
 import { VcBrainTeaser } from "@/components/VcBrainTeaser";
 import { WaitlistBanner } from "@/components/WaitlistBanner";
 import { WaitlistForm } from "@/components/WaitlistForm";
@@ -142,6 +143,8 @@ export default function HomePage() {
           <LoopDiagram />
         </div>
       </section>
+
+      <StackPartners />
 
       <section className="border-b border-line">
         <div className="site-shell py-16 sm:py-20">

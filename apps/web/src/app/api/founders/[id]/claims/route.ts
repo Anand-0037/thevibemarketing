@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { withOwnedStore } from "@/lib/with-store";
 import { getStore } from "@/lib/store";
 
@@ -19,10 +20,11 @@ export async function POST(
   return withOwnedStore(async () => {
     const { id } = await ctx.params;
     const store = getStore();
-    const founder = await store.getFounder(id);
+    const founder = await resolveFounder(store, id);
     if (!founder) {
       return NextResponse.json({ error: "Founder not found" }, { status: 404 });
     }
+    const founderId = founder.id;
 
     let body: {
       text?: string;
@@ -47,18 +49,24 @@ export async function POST(
       );
     }
 
-    // Probe needs a public evidence_url so url_diligence runs in the pipeline
-    // (Firecrawl + verify). Prefer a live GitHub/HN signal; fall back to example.com.
+    // Probe needs a public https evidence_url so url_diligence (Firecrawl) runs.
     let evidenceUrl = body.evidence_url?.trim() || undefined;
     if (probe && !evidenceUrl) {
-      const signals = await store.getSignalsFor(id);
-      const publicSignal = signals.find((s) =>
-        /^https?:\/\//i.test(s.url ?? ""),
-      );
+      const signals = await store.getSignalsFor(founderId);
+      const ranked = [...signals]
+        .map((s) => s.url)
+        .filter((u): u is string => Boolean(u && /^https?:\/\//i.test(u)))
+        .sort((a, b) => {
+          const score = (u: string) =>
+            /github\.com/i.test(u) ? 3 : /news\.ycombinator/i.test(u) ? 2 : 1;
+          return score(b) - score(a);
+        });
+      const ghLogin = founder.handles?.github?.replace(/^@/, "");
       evidenceUrl =
-        publicSignal?.url ??
+        ranked[0] ??
         founder.links?.find((l) => /^https?:\/\//i.test(l)) ??
-        "https://example.com";
+        (ghLogin ? `https://github.com/${ghLogin}` : undefined) ??
+        "https://github.com";
     }
 
     const claim = {
@@ -74,7 +82,7 @@ export async function POST(
       claims: [...(founder.claims ?? []), claim],
     });
 
-    const product = await store.getProductForFounder(id);
+    const product = await store.getProductForFounder(founderId);
     if (product) {
       await store.upsertProduct({
         ...product,

@@ -11,6 +11,7 @@ import { getStore } from "@/lib/store";
 import { withOwnedStore } from "@/lib/with-store";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 /** Max auto-screens per Identify refresh — keeps demo latency sane. */
 const AUTO_SCREEN_CAP = 2;

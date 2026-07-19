@@ -20,6 +20,8 @@ type RadarRow = Founder & {
   memo_decision_conf?: number | null;
   funnel_clock?: string;
   within_24h?: boolean;
+  /** True when track_record weight was redistributed (not "no history yet"). */
+  cold_start?: boolean;
 };
 
 function toSide(founder: RadarRow): CompareSide {
@@ -58,7 +60,7 @@ function toSide(founder: RadarRow): CompareSide {
     memo_decision_conf: founder.memo_decision_conf,
     funnel_clock: founder.funnel_clock,
     within_24h: founder.within_24h,
-    cold_start: Boolean(founder.gravity && !founder.score_history?.length),
+    cold_start: Boolean(founder.cold_start),
   };
 }
 

@@ -5,7 +5,6 @@ import {
   firecrawlSearch,
   scrapeMarkdown,
   scoreGravity,
-  scoreGravityFromSignals,
   searchGithubPublic,
   searchHnStories,
   tavilySearch,
@@ -222,7 +221,7 @@ export async function POST(req: Request) {
             error: fetched.error ?? "GitHub auth failed",
             status: fetched.status,
             hint:
-              "Set GITHUB_TOKEN in the repo-root .env (classic PAT or fine-grained with Metadata + Contents: Read on public repos). Restart `pnpm dev` after saving.",
+              "GitHub rate-limited or unauthorized. Configure a server-side GitHub token with Metadata + Contents read for public repos, then retry.",
             enrichment,
           },
           { status: 502 },

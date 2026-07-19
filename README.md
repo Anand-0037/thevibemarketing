@@ -74,6 +74,22 @@ We never invent people or companies. Unavailable sources return **zero rows**. D
 
 There is **no separate backend service to deploy**. Vercel hosts the Next app; API routes run as serverless functions. Supabase is Auth + database.
 
+### Whole system — one engine · two heads
+
+![Whole system architecture](./apps/web/public/hack-nation-diag/architecture-whole.png)
+
+*Marketing Fleet + VC Brain + `@vibe/engine` + Supabase + providers.*  
+Live: [`/hack-nation-diag/architecture-whole.svg`](https://www.vibemarketer.fun/hack-nation-diag/architecture-whole.svg)
+
+### VC Brain — Source → Screen → Diligence → Decide
+
+![VC Brain architecture](./apps/web/public/hack-nation-diag/architecture-vc-brain.png)
+
+*Memory × Intelligence × Experience · gravity · axes never averaged · Trust · traces.*  
+Live: [`/hack-nation-diag/architecture-vc-brain.svg`](https://www.vibemarketer.fun/hack-nation-diag/architecture-vc-brain.svg)
+
+Sources: Mermaid in [`../hack/diagrams/`](../hack/diagrams/) · static assets in [`apps/web/public/hack-nation-diag/`](./apps/web/public/hack-nation-diag/)
+
 **Runtime contract**
 
 - Authenticated user → owned workspace → live ingest → score → Diligence → memo  

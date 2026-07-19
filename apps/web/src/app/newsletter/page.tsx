@@ -9,7 +9,7 @@ export const metadata: Metadata = pageMetadata({
   title: "Newsletter",
   path: "/newsletter",
   description:
-    "Distribution notes for builders — agentic marketing, gravity scoring, and launch loops. From thevibemarketing.",
+    "Distribution notes for builders — agentic marketing, gravity scoring, and launch loops. From vibemarketer.",
 });
 
 export default function NewsletterPage() {

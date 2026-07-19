@@ -34,7 +34,7 @@ export function siteUrl(path = ""): string {
 export { assertProductionSiteUrl } from "./assert-site-url";
 
 export const SITE_EMAIL =
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "hello@vibemarketer.fun";
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "anandcollege07@gmail.com";
 
 /** Booking URL — Calendly for Anand, or env override. Bare cal.com ignored. */
 export const CAL_URL = (() => {

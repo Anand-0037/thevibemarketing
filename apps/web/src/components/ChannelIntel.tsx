@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readJsonSafe } from "@/lib/safe-json";
 
 type ChannelStat = {
   source: string;
@@ -28,8 +29,10 @@ export function ChannelIntel() {
     (async () => {
       try {
         const res = await fetch("/api/channels");
-        if (!res.ok) throw new Error("Failed to load channel stats");
-        const json = (await res.json()) as ChannelIntelData;
+        const { data: json } = await readJsonSafe<ChannelIntelData>(res);
+        if (!res.ok || !json) {
+          throw new Error("Failed to load channel stats");
+        }
         if (!cancelled) setData(json);
       } catch (e) {
         if (!cancelled) {
@@ -78,7 +81,7 @@ export function ChannelIntel() {
 
       {top.length === 0 ? (
         <p className="mt-3 text-sm text-muted">
-          No signals yet — seed or refresh sources to populate channel stats.
+          No signals yet — run Identify (GitHub / HN / arXiv) to populate channel stats.
         </p>
       ) : (
         <ul className="mt-4 space-y-2" aria-label="Channel rankings">
@@ -101,22 +104,10 @@ export function ChannelIntel() {
         </ul>
       )}
 
-      {data.underexplored.length > 0 ? (
-        <ul className="mt-4 flex flex-wrap gap-2" aria-label="Underexplored channels">
-          {data.underexplored.map((ch) => (
-            <li
-              key={ch}
-              className={`border px-2 py-0.5 font-mono text-[10px] uppercase ${
-                ch === "arxiv" || ch === "accelerator"
-                  ? "border-warn/40 text-warn"
-                  : "border-line text-muted"
-              }`}
-            >
-              {ch}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <p className="mt-4 text-xs text-muted">
+        Live Identify: github · hackernews · arxiv. Product Hunt / Twitter /
+        LinkedIn are not wired — never fabricated.
+      </p>
 
       {data.tip ? (
         <p className="mt-4 text-sm text-muted" role="status">

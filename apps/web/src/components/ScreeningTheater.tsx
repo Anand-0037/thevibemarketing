@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PIPELINE_STEPS } from "@/content/pipeline-steps";
+import { readJsonSafe } from "@/lib/safe-json";
 
 type Props = {
   active: boolean;
@@ -23,16 +24,26 @@ export function ScreeningTheater({
 }: Props) {
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [live, setLive] = useState(false);
+  const doneVisualFired = useRef(false);
+  const onDoneRef = useRef(onDoneVisual);
+
+  useEffect(() => {
+    onDoneRef.current = onDoneVisual;
+  }, [onDoneVisual]);
 
   useEffect(() => {
     if (!active && !complete) {
       setDoneIds(new Set());
       setLive(false);
+      doneVisualFired.current = false;
       return;
     }
     if (complete) {
       setDoneIds(new Set(PIPELINE_STEPS.map((s) => s.id)));
-      onDoneVisual?.();
+      if (!doneVisualFired.current) {
+        doneVisualFired.current = true;
+        onDoneRef.current?.();
+      }
       return;
     }
     if (!founderId) return;
@@ -40,12 +51,14 @@ export function ScreeningTheater({
     let cancelled = false;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/traces/latest/${founderId}`);
+        const res = await fetch(
+          `/api/traces/latest/${encodeURIComponent(founderId)}`,
+        );
         if (!res.ok || cancelled) return;
-        const body = (await res.json()) as {
+        const { data: body } = await readJsonSafe<{
           traces?: Array<{ step?: string }>;
-        };
-        const rows = body.traces ?? [];
+        }>(res);
+        const rows = body?.traces ?? [];
         if (rows.length === 0) return;
         const ids = new Set<string>();
         for (const row of rows) {
@@ -66,7 +79,7 @@ export function ScreeningTheater({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [active, complete, founderId, onDoneVisual]);
+  }, [active, complete, founderId]);
 
   // Soft fallback only until first real trace lands
   useEffect(() => {

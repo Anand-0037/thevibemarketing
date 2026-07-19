@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
 import { demoDefaultsEnabled } from "@/lib/demo";
+import { readJsonSafe } from "@/lib/safe-json";
 
 const DEMO = demoDefaultsEnabled();
 
@@ -51,27 +52,38 @@ export default function ApplyPage() {
     }
 
     try {
+      // Prefer deck URL alone — large PDFs hit Vercel 413 body limits.
+      if (deckUrl && hasFile) {
+        fd.delete("deck_file");
+      }
       const res = await fetch("/api/apply", {
         method: "POST",
         body: fd,
       });
-      const data = (await res.json()) as {
+      const { data, parseError } = await readJsonSafe<{
         error?: string;
         founder_id?: string;
         note?: string;
         first_pass?: FirstPass;
         ok?: boolean;
         deck_uploaded?: boolean;
-      };
-      if (data.first_pass) setFirstPass(data.first_pass);
-      if (!res.ok && !data.founder_id) {
-        setStatus(data.error || "Submit failed");
+      }>(res);
+      if (data?.first_pass) setFirstPass(data.first_pass);
+      if ((!res.ok || res.status === 413) && !data?.founder_id) {
+        setStatus(
+          data?.error ||
+            (res.status === 413
+              ? "Upload too large for serverless — use a deck URL (PDF link) instead of a local file."
+              : parseError
+                ? `Submit failed: ${parseError}`
+                : "Submit failed"),
+        );
         return;
       }
-      setFounderId(data.founder_id ?? null);
+      setFounderId(data?.founder_id ?? null);
       setStatus(
-        data.note ||
-          (data.deck_uploaded
+        data?.note ||
+          (data?.deck_uploaded
             ? "Application received (deck uploaded)"
             : "Application received"),
       );
@@ -130,8 +142,9 @@ export default function ApplyPage() {
             className="input-field focus-ring text-sm file:mr-3 file:border-0 file:bg-accent/20 file:px-3 file:py-1 file:text-accent"
           />
           <p className="mt-1 text-xs text-muted">
-            PDF only · magic-byte checked · max 8MB upload / 15MB remote URL.
-            Stored under data/uploads (ephemeral on serverless).
+            Prefer a direct PDF deck URL (DocSend / Drive / Dropbox). Local PDF
+            uploads go to private Supabase Storage when configured — if both URL
+            and file are set, only the URL is used (avoids serverless size limits).
           </p>
         </div>
         <div>

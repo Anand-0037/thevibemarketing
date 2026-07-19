@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
 import { demoDefaultsEnabled } from "@/lib/demo";
+import { readJsonSafe } from "@/lib/safe-json";
 
 type Props = {
   source?: "waitlist" | "newsletter" | "pricing" | "blog";
@@ -47,12 +48,20 @@ export function WaitlistForm({
         },
         body: JSON.stringify({ email, name: name || undefined, source }),
       });
-      const data = (await res.json()) as {
+      const { data, parseError } = await readJsonSafe<{
         ok?: boolean;
         error?: string;
         deduped?: boolean;
-      };
-      if (!res.ok) throw new Error(data.error || "Could not join");
+      }>(res);
+      if (!res.ok) {
+        throw new Error(
+          data?.error ||
+            (parseError
+              ? `Subscribe failed (${res.status}): ${parseError}`
+              : `Subscribe failed (${res.status})`),
+        );
+      }
+      if (!data) throw new Error("Subscribe failed — empty server response");
       setDeduped(Boolean(data.deduped));
       setDone(true);
     } catch (err) {

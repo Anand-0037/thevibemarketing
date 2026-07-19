@@ -1,11 +1,14 @@
 import {
+  composeFounderScoreFromGravity,
   evaluateConviction,
   formatFunnelClock,
   hoursInFunnel,
+  inferTrackRecord,
   softSkillBands,
   thesisFit,
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { withOwnedStore } from "@/lib/with-store";
 import { getStore } from "@/lib/store";
 
@@ -19,14 +22,15 @@ export async function GET(
 
     const { id } = await ctx.params;
     const store = getStore();
-    const founder = await store.getFounder(id);
+    const founder = await resolveFounder(store, id);
     if (!founder) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
-    const product = await store.getProductForFounder(id);
-    const signals = await store.getSignalsFor(id);
-    const screening = await store.getLatestScreening(id);
-    const memo = await store.getLatestMemo(id);
+    const founderId = founder.id;
+    const product = await store.getProductForFounder(founderId);
+    const signals = await store.getSignalsFor(founderId);
+    const screening = await store.getLatestScreening(founderId);
+    const memo = await store.getLatestMemo(founderId);
     const thesis = await store.getThesis();
     const hours = hoursInFunnel(founder.created_at);
     const conviction = evaluateConviction({
@@ -42,6 +46,10 @@ export async function GET(
       signal_source_count: sourceCount,
     });
     const fit = thesisFit(thesis, product, founder);
+    const cold_start = composeFounderScoreFromGravity(founder.gravity, {
+      track_record: inferTrackRecord(founder),
+      coherence: sourceCount >= 2 ? 70 : 45,
+    }).cold_start;
     return NextResponse.json({
       founder,
       product,
@@ -55,6 +63,8 @@ export async function GET(
       within_24h: hours <= 24,
       conviction,
       trait_bands,
+      cold_start,
+      canonical_id: founderId,
     });
   });
 }

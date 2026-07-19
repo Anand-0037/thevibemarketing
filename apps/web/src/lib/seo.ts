@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import {
   KEYWORDS,
   SITE_DESCRIPTION,
+  SITE_EMAIL,
   SITE_NAME,
   SITE_TAGLINE,
   siteUrl,
@@ -57,7 +58,7 @@ export function organizationJsonLd() {
     name: SITE_NAME,
     url: siteUrl(),
     logo: siteUrl("/brand/logo.svg"),
-    email: `hello@vibemarketer.fun`,
+    email: SITE_EMAIL,
     description: SITE_DESCRIPTION,
     sameAs: [siteUrl("/llms.txt")].filter(Boolean),
   };

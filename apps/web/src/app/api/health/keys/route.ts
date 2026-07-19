@@ -7,6 +7,7 @@ import {
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { isPostgresDualEnabled } from "@/lib/postgres-dual";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -195,6 +196,16 @@ export async function GET() {
   ];
   const pass = keys.filter((k) => k.ok).length;
   const fail = keys.filter((k) => k.configured && !k.ok).length;
+
+  const dual = isPostgresDualEnabled();
+  keys.push({
+    key: "POSTGRES_DUAL",
+    configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    ok: dual,
+    detail: dual
+      ? "Memory ↔ Supabase dual-write ON (required for durable radar on Vercel)"
+      : "OFF — set SUPABASE_SERVICE_ROLE_KEY (+ USE_POSTGRES_DUAL=1 locally). Radar will look empty across serverless instances.",
+  });
 
   return NextResponse.json({
     ok: fail === 0,

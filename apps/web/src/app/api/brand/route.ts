@@ -7,26 +7,35 @@ import {
   getMarketingStore,
   heuristicBrandFromUrl,
 } from "@/lib/marketing-store";
+import { normalizeHttpUrl } from "@/lib/url";
+import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function GET() {
-  const store = getMarketingStore();
-  const brand = await store.getBrand();
-  return NextResponse.json({ brand });
+  return withMarketingStore(async () => {
+    const store = getMarketingStore();
+    const brand = await store.getBrand();
+    return NextResponse.json({ brand });
+  });
 }
 
 /**
  * POST { url } — Firecrawl map→markdown when keyed (cheap recon), else heuristic.
  * Never runs Firecrawl JSON extract here (wallet protection).
+ * Bare domains (kaggleingest.com) are accepted.
  */
 export async function POST(req: Request) {
+  return withMarketingStore(async () => {
   try {
     const body = (await req.json()) as { url?: string };
-    const url = body.url?.trim();
+    const url = normalizeHttpUrl(String(body.url || ""));
     if (!url) {
-      return NextResponse.json({ error: "url required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "url required (e.g. https://example.com or example.com)" },
+        { status: 400 },
+      );
     }
 
     const disc = await discoverThenScrapeMarkdown(url);
@@ -68,4 +77,5 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+  });
 }

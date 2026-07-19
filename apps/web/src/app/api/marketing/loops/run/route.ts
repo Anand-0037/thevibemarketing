@@ -11,6 +11,7 @@ import {
   type Post,
   type PostStatus,
 } from "@/lib/marketing-store";
+import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
 
@@ -24,19 +25,6 @@ type DraftTemplate = {
   note?: string;
   sensed_url?: string;
 };
-
-function ensureBrand(storeBrand: BrandContext | null): Omit<BrandContext, "updated_at"> {
-  if (storeBrand) return storeBrand;
-  return {
-    url: "https://vibemarketer.fun",
-    name: "thevibemarketing",
-    oneliner:
-      "Autonomous AI agent fleet for your marketing department — Cursor for marketing.",
-    icp: "Solo SaaS founders and small technical teams",
-    tone: "direct/technical",
-    pillars: ["distribution", "HITL brand safety", "persistent brand memory"],
-  };
-}
 
 function dailyTemplates(brand: Omit<BrandContext, "updated_at">): DraftTemplate[] {
   const pillar = brand.pillars[0] ?? "distribution";
@@ -135,6 +123,7 @@ function resolveInitialStatus(
 }
 
 export async function POST(req: Request) {
+  return withMarketingStore(async () => {
   let body: { type?: string };
   try {
     body = (await req.json()) as { type?: string };
@@ -154,9 +143,15 @@ export async function POST(req: Request) {
   const loopType = type as "daily_distribution" | "opportunity";
 
   const store = getMarketingStore();
-  let brand = await store.getBrand();
+  const brand = await store.getBrand();
   if (!brand) {
-    brand = await store.setBrand(ensureBrand(null));
+    return NextResponse.json(
+      {
+        error:
+          "Set your brand first (onboarding or Brand URL) before running a loop.",
+      },
+      { status: 400 },
+    );
   }
 
   const autonomy = await store.getAutonomy();
@@ -264,4 +259,5 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+  });
 }

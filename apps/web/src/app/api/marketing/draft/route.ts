@@ -11,6 +11,7 @@ import {
   type Platform,
   type Post,
 } from "@/lib/marketing-store";
+import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -154,23 +155,18 @@ Also respect brand tone/ICP. Reply with JSON only matching the schema.`,
 }
 
 export async function POST() {
+  return withMarketingStore(async () => {
   const store = getMarketingStore();
-  let brand = await store.getBrand();
+  const brand = await store.getBrand();
 
   if (!brand) {
-    brand = await store.setBrand({
-      url: "https://vibemarketer.fun",
-      name: "thevibemarketing",
-      oneliner:
-        "Autonomous AI agent fleet for your marketing department — Cursor for marketing.",
-      icp: "SaaS founders, early startups, and MSMEs who need on-brand social",
-      tone: "direct/technical",
-      pillars: [
-        "distribution",
-        "HITL brand safety",
-        "persistent brand memory",
-      ],
-    });
+    return NextResponse.json(
+      {
+        error:
+          "Set your brand first (onboarding or Brand URL) before drafting.",
+      },
+      { status: 400 },
+    );
   }
 
   const recall = await recallBrandMemory({
@@ -232,5 +228,6 @@ export async function POST() {
       contextLines: recall.contextLines,
       live: recall.contextLines.length > 0,
     },
+  });
   });
 }

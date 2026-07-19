@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { TraceStep } from "@vibe/engine";
 import { PIPELINE_STEPS } from "@/content/pipeline-steps";
+import { readJsonSafe } from "@/lib/safe-json";
 
 type Props = {
   runId: string | null;
@@ -39,12 +40,13 @@ export function TraceDrawer({
     setError(null);
     try {
       const res = await fetch(`/api/traces/${runId}`);
-      if (!res.ok) throw new Error("Trace not found");
-      const data = (await res.json()) as {
+      const { data } = await readJsonSafe<{
         steps?: TraceStep[];
         traces?: TraceStep[];
-      };
-      setLoaded(data.steps ?? data.traces ?? []);
+        error?: string;
+      }>(res);
+      if (!res.ok) throw new Error(data?.error || "Trace not found");
+      setLoaded(data?.steps ?? data?.traces ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load trace");
     } finally {

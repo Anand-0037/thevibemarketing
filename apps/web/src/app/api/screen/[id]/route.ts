@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { withOwnedStore } from "@/lib/with-store";
 import { runVcBrainPipeline } from "@/lib/pipeline";
 import { getStore } from "@/lib/store";
@@ -15,8 +16,12 @@ export async function POST(
 
     const { id } = await ctx.params;
     const store = getStore();
+    const founder = await resolveFounder(store, id);
+    if (!founder) {
+      return NextResponse.json({ error: "Founder not found" }, { status: 404 });
+    }
     try {
-      const result = await runVcBrainPipeline(store, id);
+      const result = await runVcBrainPipeline(store, founder.id);
       return NextResponse.json(result);
     } catch (e) {
       const message = e instanceof Error ? e.message : "screen failed";

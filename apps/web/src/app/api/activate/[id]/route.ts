@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveFounder } from "@/lib/resolve-founder";
 import { withOwnedStore } from "@/lib/with-store";
 import { SITE_DOMAIN, SITE_NAME, siteUrl } from "@/lib/site";
 import { getStore } from "@/lib/store";
@@ -18,10 +19,11 @@ export async function POST(
 
     const { id } = await ctx.params;
     const store = getStore();
-    const founder = await store.getFounder(id);
+    const founder = await resolveFounder(store, id);
     if (!founder) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
+    const founderId = founder.id;
 
     let body: {
       action?: "draft" | "sent" | "applied";
@@ -34,7 +36,7 @@ export async function POST(
       return NextResponse.json({ error: "JSON required" }, { status: 400 });
     }
 
-    const product = await store.getProductForFounder(id);
+    const product = await store.getProductForFounder(founderId);
     const company = product?.name ?? "your company";
     const now = new Date().toISOString();
     const channel = body.channel ?? "email";
@@ -85,8 +87,8 @@ export async function POST(
       // Converge: same funnel as inbound — ensure product exists, tag signal.
       if (!product) {
         await store.upsertProduct({
-          id: `p_${id}`,
-          founder_id: id,
+          id: `p_${founderId}`,
+          founder_id: founderId,
           name: company,
           oneliner: founder.bio ?? "Outbound-activated application",
           sector: "developer tools",
@@ -96,14 +98,14 @@ export async function POST(
       }
       await store.addSignal({
         entity_type: "founder",
-        entity_id: id,
+        entity_id: founderId,
         source: "outbound_activate",
         url: "/app/apply",
         payload: { channel, converged: true, funnel: "inbound_screening" },
         observed_at: now,
       });
       const updated = await store.upsertFounder({
-        id: founder.id,
+        id: founderId,
         name: founder.name,
         activation: {
           ...prev,
@@ -120,7 +122,7 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         activation: updated.activation,
-        founder_id: id,
+        founder_id: founderId,
         converged: true,
         funnel: "inbound_screening",
         note: "Converge complete — same Screening funnel as inbound. Run 3-axis screen next.",

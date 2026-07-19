@@ -6,7 +6,7 @@
 
 export const DOGFOOD_OPERATOR = {
   name: "Anand Vashishtha",
-  email: "hello@vibemarketer.fun",
+  email: "anandcollege07@gmail.com",
   location: "Ghaziabad, Uttar Pradesh, India",
   x_url: "https://x.com/AnandVashisht15",
   x_handle: "AnandVashisht15",

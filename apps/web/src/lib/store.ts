@@ -25,6 +25,26 @@ import {
 import { projectRoot } from "./paths";
 import { getWorkspaceOwnerId } from "./workspace-context";
 
+function dualWriteFailClosed(): boolean {
+  // When dual-write is on, never report success if Postgres failed.
+  // Opt out only with DUAL_WRITE_FAIL_CLOSED=0 (local debugging).
+  if (!isPostgresDualEnabled()) return false;
+  if (process.env.DUAL_WRITE_FAIL_CLOSED === "0") return false;
+  return true;
+}
+
+async function runDualWrite(
+  label: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  try {
+    await fn();
+  } catch (e) {
+    console.error(`[store] ${label}`, e);
+    if (dualWriteFailClosed()) throw e;
+  }
+}
+
 /**
  * Per-owner MemoryStore. On Vercel, cache under /tmp; Postgres is durable.
  */
@@ -32,44 +52,53 @@ class DualMemoryStore extends MemoryStore {
   private pgHydrated = false;
 
   override async load(): Promise<StoreData> {
-    if (!this.pgHydrated) {
-      this.pgHydrated = true;
-      const local = await super.load();
-      const bundle = await fetchStoreBundleFromPostgres();
-      if (bundle?.founders.length) {
-        // Keep warm JSON opportunity data if Postgres hydrate is still catching up
-        // (migration lag / first dual-write after enable).
-        const founderIds = new Set(bundle.founders.map((f) => f.id));
-        const founders = bundle.founders.map((f) => {
-          if (f.claims?.length) return f;
-          const loc = local.founders.find((lf) => lf.id === f.id);
-          return loc?.claims?.length ? { ...f, claims: loc.claims } : f;
-        });
-        const products =
-          bundle.products.length > 0
-            ? bundle.products
-            : local.products.filter((p) => founderIds.has(p.founder_id));
-        const merged: StoreData = {
-          ...bundle,
-          founders,
-          products,
-          screenings: bundle.screenings.length
-            ? bundle.screenings
-            : local.screenings.filter((s) => founderIds.has(s.founder_id)),
-          memos: bundle.memos.length
-            ? bundle.memos
-            : local.memos.filter((m) => founderIds.has(m.founder_id)),
-          traces: bundle.traces.length ? bundle.traces : local.traces,
-          thesis: bundle.thesis ?? local.thesis,
-        };
-        await this.replaceAll(merged);
-        console.info(
-          `[store] Hydrated ${merged.founders.length} founders · ${merged.products.length} products from Postgres`,
-        );
-        return merged;
-      }
+    const local = await super.load();
+    // Re-hydrate when empty — Vercel routes hit different instances; /tmp is not shared.
+    if (this.pgHydrated && local.founders.length > 0) {
+      return local;
     }
-    return super.load();
+    const bundle = await fetchStoreBundleFromPostgres();
+    this.pgHydrated = true;
+    if (
+      bundle &&
+      (bundle.founders.length ||
+        bundle.products.length ||
+        bundle.screenings.length ||
+        bundle.memos.length ||
+        bundle.thesis)
+    ) {
+      // Keep warm JSON opportunity data if Postgres hydrate is still catching up
+      // (migration lag / first dual-write after enable).
+      const founderIds = new Set(bundle.founders.map((f) => f.id));
+      const founders = bundle.founders.map((f) => {
+        if (f.claims?.length) return f;
+        const loc = local.founders.find((lf) => lf.id === f.id);
+        return loc?.claims?.length ? { ...f, claims: loc.claims } : f;
+      });
+      const products =
+        bundle.products.length > 0
+          ? bundle.products
+          : local.products.filter((p) => founderIds.has(p.founder_id));
+      const merged: StoreData = {
+        ...bundle,
+        founders: founders.length ? founders : local.founders,
+        products,
+        screenings: bundle.screenings.length
+          ? bundle.screenings
+          : local.screenings.filter((s) => founderIds.has(s.founder_id)),
+        memos: bundle.memos.length
+          ? bundle.memos
+          : local.memos.filter((m) => founderIds.has(m.founder_id)),
+        traces: bundle.traces.length ? bundle.traces : local.traces,
+        thesis: bundle.thesis ?? local.thesis,
+      };
+      await this.replaceAll(merged);
+      console.info(
+        `[store] Hydrated ${merged.founders.length} founders · ${merged.products.length} products from Postgres`,
+      );
+      return merged;
+    }
+    return local;
   }
 
   override async addSignal(
@@ -79,11 +108,7 @@ class DualMemoryStore extends MemoryStore {
     },
   ): Promise<Signal> {
     const saved = await super.addSignal(signal);
-    try {
-      await dualWriteSignal(saved);
-    } catch (e) {
-      console.error("[store] dualWriteSignal", e);
-    }
+    await runDualWrite("dualWriteSignal", () => dualWriteSignal(saved));
     return saved;
   }
 
@@ -101,14 +126,12 @@ class DualMemoryStore extends MemoryStore {
       /* ignore */
     }
     const saved = await super.upsertFounder(founder);
-    try {
-      await dualWriteFounder(saved, {
+    await runDualWrite("dualWriteFounder", () =>
+      dualWriteFounder(saved, {
         trigger: "upsert",
         prev_score: prev,
-      });
-    } catch (e) {
-      console.error("[store] dualWriteFounder", e);
-    }
+      }),
+    );
     return saved;
   }
 
@@ -116,51 +139,31 @@ class DualMemoryStore extends MemoryStore {
     product: Partial<Product> & { name: string; founder_id: string },
   ): Promise<Product> {
     const saved = await super.upsertProduct(product);
-    try {
-      await dualWriteProduct(saved);
-    } catch (e) {
-      console.error("[store] dualWriteProduct", e);
-    }
+    await runDualWrite("dualWriteProduct", () => dualWriteProduct(saved));
     return saved;
   }
 
   override async saveScreening(screening: Screening): Promise<Screening> {
     const saved = await super.saveScreening(screening);
-    try {
-      await dualWriteScreening(saved);
-    } catch (e) {
-      console.error("[store] dualWriteScreening", e);
-    }
+    await runDualWrite("dualWriteScreening", () => dualWriteScreening(saved));
     return saved;
   }
 
   override async saveMemo(memo: Memo): Promise<Memo> {
     const saved = await super.saveMemo(memo);
-    try {
-      await dualWriteMemo(saved);
-    } catch (e) {
-      console.error("[store] dualWriteMemo", e);
-    }
+    await runDualWrite("dualWriteMemo", () => dualWriteMemo(saved));
     return saved;
   }
 
   override async addTrace(step: TraceStep): Promise<TraceStep> {
     const saved = await super.addTrace(step);
-    try {
-      await dualWriteTrace(saved);
-    } catch (e) {
-      console.error("[store] dualWriteTrace", e);
-    }
+    await runDualWrite("dualWriteTrace", () => dualWriteTrace(saved));
     return saved;
   }
 
   override async setThesis(thesis: Thesis): Promise<Thesis> {
     const saved = await super.setThesis(thesis);
-    try {
-      await dualWriteThesis(saved);
-    } catch (e) {
-      console.error("[store] dualWriteThesis", e);
-    }
+    await runDualWrite("dualWriteThesis", () => dualWriteThesis(saved));
     return saved;
   }
 }

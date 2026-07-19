@@ -5,6 +5,7 @@ import {
   type CampaignBrief,
   type CampaignDay,
 } from "@/lib/marketing-store";
+import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
 
@@ -73,41 +74,39 @@ function buildCampaign(brand: {
 }
 
 export async function GET() {
-  const store = getMarketingStore();
-  const campaign = await store.getCampaign();
-  return NextResponse.json({ campaign });
+  return withMarketingStore(async () => {
+    const store = getMarketingStore();
+    const campaign = await store.getCampaign();
+    return NextResponse.json({ campaign });
+  });
 }
 
 export async function POST() {
-  const store = getMarketingStore();
-  let brand = await store.getBrand();
-  if (!brand) {
-    brand = await store.setBrand({
-      url: "https://vibemarketer.fun",
-      name: "thevibemarketing",
-      oneliner:
-        "Autonomous AI agent fleet for marketing — drafts for SaaS, startups, and MSMEs.",
-      icp: "SaaS founders, early startups, and MSMEs who need on-brand social without an agency",
-      tone: "direct/technical",
-      pillars: [
-        "distribution",
-        "HITL brand safety",
-        "persistent brand memory",
-      ],
+  return withMarketingStore(async () => {
+    const store = getMarketingStore();
+    const brand = await store.getBrand();
+    if (!brand) {
+      return NextResponse.json(
+        {
+          error:
+            "Set your brand first (onboarding or Brand URL) before generating a campaign.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const campaign = buildCampaign(brand);
+    await store.setCampaign(campaign);
+    await store.addLoop({
+      id: `loop_${randomUUID().slice(0, 8)}`,
+      name: "campaign-brief",
+      started_at: campaign.created_at,
+      finished_at: campaign.created_at,
+      status: "done",
+      posts_created: 0,
+      note: "7-day campaign brief saved — generate drafts separately",
     });
-  }
 
-  const campaign = buildCampaign(brand);
-  await store.setCampaign(campaign);
-  await store.addLoop({
-    id: `loop_${randomUUID().slice(0, 8)}`,
-    name: "campaign-brief",
-    started_at: campaign.created_at,
-    finished_at: campaign.created_at,
-    status: "done",
-    posts_created: 0,
-    note: "7-day campaign brief saved — generate drafts separately",
+    return NextResponse.json({ campaign, brand });
   });
-
-  return NextResponse.json({ campaign, brand });
 }

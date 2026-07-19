@@ -8,6 +8,7 @@ import {
   signUpWithPassword,
   type AuthActionState,
 } from "@/app/login/actions";
+import { SITE_EMAIL } from "@/lib/site";
 
 const initial: AuthActionState = {};
 
@@ -55,10 +56,10 @@ export function AuthForm({
         <div className="panel mt-8 border-warn/40 p-4 text-sm text-muted" role="status">
           Sign-in is temporarily unavailable. Email{" "}
           <a
-            href="mailto:hello@vibemarketer.fun"
+            href={`mailto:${SITE_EMAIL}`}
             className="text-accent hover:underline"
           >
-            hello@vibemarketer.fun
+            {SITE_EMAIL}
           </a>{" "}
           or try again shortly.
         </div>
