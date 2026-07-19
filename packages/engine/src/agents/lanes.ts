@@ -93,7 +93,7 @@ export async function runCodeForensicsLane(
   const evidence: string[] = [];
   const signal_payloads: AgentLaneResult["signal_payloads"] = [];
 
-  const repo = resolveGithubRepo(founder, product);
+  let repo = resolveGithubRepo(founder, product);
   const owner = repo?.owner || founder.handles.github?.replace(/^@/, "");
   if (!owner) {
     return {
