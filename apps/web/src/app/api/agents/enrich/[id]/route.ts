@@ -19,18 +19,50 @@ export const maxDuration = 120;
  * Writes gravity signals from GitHub / Tavily / Firecrawl / E2B, then rescores.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   return withOwnedStore(async () => {
 
     const { id } = await ctx.params;
     const store = getStore();
-    const founder = await resolveFounder(store, id);
+    let founder = await resolveFounder(store, id);
     if (!founder) {
       return NextResponse.json({ error: "founder not found" }, { status: 404 });
     }
     const founderId = founder.id;
+
+    // Optional body: attach handles so thin inbound rows can get gravity without re-apply.
+    let body: { github?: string; x_handle?: string; linkedin?: string } = {};
+    try {
+      const ct = req.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        body = (await req.json()) as typeof body;
+      }
+    } catch {
+      /* empty body OK */
+    }
+    const gh = (body.github ?? "").trim().replace(/^@/, "");
+    const x = (body.x_handle ?? "").trim().replace(/^@/, "");
+    const li = (body.linkedin ?? "").trim();
+    if (gh || x || li) {
+      const links = [...(founder.links ?? [])];
+      if (gh && !links.some((l) => l.includes("github.com"))) {
+        links.push(`https://github.com/${gh}`);
+      }
+      founder = await store.upsertFounder({
+        id: founderId,
+        name: founder.name,
+        handles: {
+          ...founder.handles,
+          ...(gh ? { github: gh } : {}),
+          ...(x ? { twitter: x, x } : {}),
+          ...(li ? { linkedin: li } : {}),
+        },
+        links,
+      });
+    }
+
     const product = await store.getProductForFounder(founderId);
 
     const profile = await enrichFromProfile(founder, product);

@@ -2,7 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   coherenceFromSignals,
   composeFounderScoreFromGravity,
+  enrichFromProfile,
   firstPassScreen,
+  inferTrackRecord,
   scoreGravityFromSignals,
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
@@ -18,7 +20,8 @@ import { getWorkspaceOwnerId } from "@/lib/workspace-context";
 import { withOptionalStore } from "@/lib/with-store";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+/** Enrichment (GitHub/Tavily) may run after apply for cold-start gravity. */
+export const maxDuration = 90;
 
 type ParsedApply = {
   company_name?: string;
@@ -26,12 +29,30 @@ type ParsedApply = {
   oneliner?: string;
   founder_name?: string;
   sector?: string;
+  github?: string;
+  x_handle?: string;
+  linkedin?: string;
   deck_file_name?: string;
   deck_bytes?: number;
   deck_sha256?: string;
   deck_storage_path?: string;
   deck_buf?: Buffer;
 };
+
+function cleanPublicHandle(raw?: string): string | undefined {
+  const t = (raw ?? "").trim().replace(/^@/, "");
+  if (!t) return undefined;
+  if (/github\.com/i.test(t)) {
+    try {
+      const u = new URL(t.startsWith("http") ? t : `https://${t}`);
+      const part = u.pathname.split("/").filter(Boolean)[0];
+      return part || undefined;
+    } catch {
+      return t;
+    }
+  }
+  return t.replace(/^https?:\/\//i, "").split("/")[0] || t;
+}
 
 async function parseBody(req: Request): Promise<ParsedApply> {
   const ct = req.headers.get("content-type") || "";
@@ -44,6 +65,9 @@ async function parseBody(req: Request): Promise<ParsedApply> {
     const founder_name =
       String(form.get("founder_name") || "").trim() || undefined;
     const sector = String(form.get("sector") || "").trim() || undefined;
+    const github = String(form.get("github") || "").trim() || undefined;
+    const x_handle = String(form.get("x_handle") || "").trim() || undefined;
+    const linkedin = String(form.get("linkedin") || "").trim() || undefined;
 
     // When a deck URL is present, ignore local file (avoids Vercel 413 + FS writes).
     if (deck_url) {
@@ -53,6 +77,9 @@ async function parseBody(req: Request): Promise<ParsedApply> {
         oneliner,
         founder_name,
         sector,
+        github,
+        x_handle,
+        linkedin,
       };
     }
 
@@ -91,6 +118,9 @@ async function parseBody(req: Request): Promise<ParsedApply> {
       oneliner,
       founder_name,
       sector,
+      github,
+      x_handle,
+      linkedin,
       deck_file_name,
       deck_bytes,
       deck_sha256,
@@ -104,6 +134,9 @@ async function parseBody(req: Request): Promise<ParsedApply> {
     oneliner?: string;
     founder_name?: string;
     sector?: string;
+    github?: string;
+    x_handle?: string;
+    linkedin?: string;
   };
   return {
     ...json,
@@ -221,6 +254,15 @@ export async function POST(req: Request) {
         );
       }
 
+      const github = cleanPublicHandle(body.github);
+      const xHandle = cleanPublicHandle(body.x_handle);
+      const linkedin = (body.linkedin ?? "").trim() || undefined;
+      const links = [
+        deckUrl,
+        github ? `https://github.com/${github}` : undefined,
+        linkedin,
+      ].filter((x): x is string => Boolean(x));
+
       const claims = [
         {
           text: `Deck: ${deckRef}${body.deck_sha256 ? ` · sha256:${body.deck_sha256}` : ""}`,
@@ -238,8 +280,12 @@ export async function POST(req: Request) {
       await store.upsertFounder({
         id,
         name,
-        handles: {},
-        links: deckUrl ? [deckUrl] : [],
+        handles: {
+          ...(github ? { github } : {}),
+          ...(xHandle ? { twitter: xHandle, x: xHandle } : {}),
+          ...(linkedin ? { linkedin } : {}),
+        },
+        links,
         bio: `Inbound application for ${companyName}`,
         claims,
         founder_score: 0,
@@ -270,6 +316,7 @@ export async function POST(req: Request) {
           deck_bytes: body.deck_bytes,
           deck_sha256: body.deck_sha256,
           deck_storage_path,
+          github: github ?? null,
         },
         observed_at: now,
       });
@@ -292,13 +339,49 @@ export async function POST(req: Request) {
         if (error) console.error("[apply] inbound_applications", error.message);
       }
 
+      let product = await store.getProductForFounder(id);
+      let enrichNote: string | undefined;
+      // Cold-start path (brief AoR #3): public footprint → gravity before screen.
+      if (github || xHandle || linkedin || deckUrl) {
+        const base = await store.getFounder(id);
+        if (base) {
+          try {
+            const profile = await enrichFromProfile(base, product);
+            for (const sp of profile.signals) {
+              await store.addSignal({
+                entity_type: "founder",
+                entity_id: id,
+                source: sp.source,
+                url: sp.url,
+                payload: sp.payload,
+                observed_at: new Date().toISOString(),
+              });
+            }
+            if (profile.providers_used.length) {
+              enrichNote = `Enriched via ${profile.providers_used.join(", ")}.`;
+            } else if (profile.errors.length) {
+              enrichNote = `Enrichment skipped: ${profile.errors[0]}`;
+            } else if (!github) {
+              enrichNote =
+                "No GitHub handle — gravity stays thin until public signals exist. Add GitHub and re-enrich.";
+            }
+          } catch (e) {
+            enrichNote =
+              e instanceof Error
+                ? `Enrichment failed: ${e.message}`
+                : "Enrichment failed";
+          }
+        }
+      }
+
       const signals = await store.getSignalsFor(id);
       const gravity = scoreGravityFromSignals(signals);
+      const founderNow = (await store.getFounder(id))!;
       const score = composeFounderScoreFromGravity(gravity, {
         coherence: coherenceFromSignals(
           new Set(signals.map((s) => s.source)).size,
         ),
-        track_record: null,
+        track_record: inferTrackRecord(founderNow),
       });
       const founder = await store.upsertFounder({
         id,
@@ -306,9 +389,11 @@ export async function POST(req: Request) {
         founder_score: score.founder_score,
         score_confidence: score.score_confidence,
         gravity,
+        handles: founderNow.handles,
+        links: founderNow.links,
       });
 
-      const product = await store.getProductForFounder(id);
+      product = await store.getProductForFounder(id);
       const thesis = await store.getThesis();
       const first_pass = firstPassScreen({
         founder: {
@@ -328,6 +413,9 @@ export async function POST(req: Request) {
         ok: first_pass.pass,
         founder_id: id,
         first_pass,
+        gravity: gravity.gravity_score,
+        founder_score: score.founder_score,
+        cold_start: score.cold_start,
         deck_uploaded: Boolean(body.deck_file_name),
         deck_url_is_pdf: deckUrlIsPdf,
         materials_kind: materialsKind ?? null,
@@ -337,6 +425,8 @@ export async function POST(req: Request) {
           first_pass.pass
             ? "First-pass cleared — open founder → run 3-axis screen next."
             : "Application stored — first-pass flagged issues (see checks).",
+          enrichNote,
+          `Gravity ${gravity.gravity_score.toFixed(0)}/100 · Founder Score ${score.founder_score.toFixed(0)}.`,
           deckUrlNote,
         ]
           .filter(Boolean)

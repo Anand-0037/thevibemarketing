@@ -5,6 +5,7 @@ import {
   hoursInFunnel,
   inferTrackRecord,
   momentumDelta,
+  scoreGravityFromSignals,
   scoreHistoryTrend,
   softSkillBands,
   thesisFit,
@@ -15,6 +16,15 @@ import { getStore } from "@/lib/store";
 
 export const runtime = "nodejs";
 
+function gravityThin(
+  g: { gravity_score?: number; abstain?: boolean; components?: { velocity?: number } } | null | undefined,
+): boolean {
+  if (!g || typeof g.gravity_score !== "number") return true;
+  if (g.abstain) return true;
+  if ((g.components?.velocity ?? 0) <= 0 && g.gravity_score < 15) return true;
+  return false;
+}
+
 export async function GET(req: Request) {
   return withOwnedStore(async () => {
 
@@ -22,7 +32,7 @@ export async function GET(req: Request) {
     const thesis = await store.getThesis();
     const url = new URL(req.url);
     const hideMiss = url.searchParams.get("hide_miss") === "1";
-    const sort = url.searchParams.get("sort") || "score"; // score | momentum
+    const sort = url.searchParams.get("sort") || "score"; // score | momentum | gravity
 
     const founders = await store.listFounders();
 
@@ -32,6 +42,34 @@ export async function GET(req: Request) {
         const screening = await store.getLatestScreening(f.id);
         const memo = await store.getLatestMemo(f.id);
         const signals = await store.getSignalsFor(f.id);
+        // Recompute when stored gravity is empty but signals exist (hydrate lag / inbound-only).
+        let gravity = f.gravity;
+        if (gravityThin(gravity) && signals.length > 0) {
+          const rescored = scoreGravityFromSignals(signals);
+          if (
+            rescored.gravity_score > (gravity?.gravity_score ?? 0) ||
+            !gravityThin(rescored)
+          ) {
+            gravity = rescored;
+            const score = composeFounderScoreFromGravity(rescored, {
+              track_record: inferTrackRecord(f),
+              coherence: new Set(signals.map((s) => s.source)).size >= 2 ? 70 : 45,
+            });
+            void store.upsertFounder({
+              id: f.id,
+              name: f.name,
+              gravity: rescored,
+              founder_score: score.founder_score,
+              score_confidence: score.score_confidence,
+            });
+            f = {
+              ...f,
+              gravity: rescored,
+              founder_score: score.founder_score,
+              score_confidence: score.score_confidence,
+            };
+          }
+        }
         const fit = thesisFit(thesis, product, f);
         const history = f.score_history ?? [];
         const momentum = momentumDelta(history);
@@ -55,6 +93,7 @@ export async function GET(req: Request) {
           track_record: inferTrackRecord(f),
           coherence: sourceCount >= 2 ? 70 : 45,
         }).cold_start;
+        const public_sources = [...new Set(signals.map((s) => s.source))];
         return {
           ...f,
           product,
@@ -82,6 +121,9 @@ export async function GET(req: Request) {
           conviction_reasons: conviction.reasons,
           trait_bands,
           cold_start,
+          gravity_thin: gravityThin(f.gravity),
+          public_sources,
+          signal_count: signals.length,
         };
       }),
     );
@@ -91,6 +133,12 @@ export async function GET(req: Request) {
 
     if (sort === "momentum") {
       rows = [...rows].sort((a, b) => b.momentum - a.momentum || b.founder_score - a.founder_score);
+    } else if (sort === "gravity") {
+      rows = [...rows].sort(
+        (a, b) =>
+          (b.gravity?.gravity_score ?? 0) - (a.gravity?.gravity_score ?? 0) ||
+          b.founder_score - a.founder_score,
+      );
     } else {
       // Soft thesis ranking: match > partial > miss, then score
       const rank = { match: 0, partial: 1, miss: 2 } as const;

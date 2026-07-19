@@ -100,7 +100,8 @@ export default function ApplyPage() {
       </h1>
       <p className="mt-2 max-w-xl text-sm text-muted">
         Minimum bar: company name + materials (product site URL, deck link, or
-        PDF upload). First-pass filter runs before full 3-axis analysis.
+        PDF upload). Add a GitHub handle so cold-start gravity can score public
+        pull — without it, compare stays near-zero until you enrich.
       </p>
 
       <form onSubmit={(e) => void onSubmit(e)} className="mt-8 max-w-lg space-y-4">
@@ -159,6 +160,36 @@ export default function ApplyPage() {
             className="input-field focus-ring"
             placeholder="Founder name"
             defaultValue={DEMO ? DOGFOOD_OPERATOR.name : undefined}
+          />
+        </div>
+        <div>
+          <label htmlFor="github" className="mb-1 block text-sm text-muted">
+            GitHub username{" "}
+            <span className="text-accent">(recommended · cold-start)</span>
+          </label>
+          <input
+            id="github"
+            name="github"
+            className="input-field focus-ring font-mono text-sm"
+            placeholder="Anand-0037"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.github_login : undefined}
+            autoComplete="username"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Public footprint feeds distribution gravity (stars, followers,
+            velocity). Brief Area of Research #3 — not pedigree.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="x_handle" className="mb-1 block text-sm text-muted">
+            X / Twitter (optional)
+          </label>
+          <input
+            id="x_handle"
+            name="x_handle"
+            className="input-field focus-ring font-mono text-sm"
+            placeholder="AnandVashisht15"
+            defaultValue={DEMO ? DOGFOOD_OPERATOR.x_handle : undefined}
           />
         </div>
         <div>

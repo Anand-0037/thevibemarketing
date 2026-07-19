@@ -1,6 +1,9 @@
 import Link from "next/link";
 
-/** Product visual — cold-start gravity vs quiet pedigree. */
+/**
+ * Marketing teaching diagram — FIXED numbers on purpose.
+ * Live radar/compare use real Identify/Apply gravity; do not confuse the two.
+ */
 export function VcBrainTeaser({ compact = false }: { compact?: boolean }) {
   return (
     <div
@@ -25,8 +28,9 @@ export function VcBrainTeaser({ compact = false }: { compact?: boolean }) {
         Same check size.{" "}
         <span className="text-accent">Different pull.</span>
       </p>
-      <p className="relative mt-2 text-xs text-muted">
-        Illustrative example — not a live candidate.
+      <p className="relative mt-2 border-l-2 border-warn/60 pl-3 text-xs leading-relaxed text-muted">
+        Teaching diagram with fixed scores (89 vs 27) — not your workspace.
+        Open Gravity compare for live founders after Identify or Apply + GitHub.
       </p>
       <div className="relative mt-6 grid grid-cols-2 gap-4 sm:gap-8">
         <div>
@@ -53,14 +57,14 @@ export function VcBrainTeaser({ compact = false }: { compact?: boolean }) {
           href="/app/compare"
           className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
         >
-          Open gravity compare
+          Open live gravity compare
         </Link>
         {!compact ? (
           <Link
             href="/app/radar"
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
           >
-            Open radar
+            Identify on radar
           </Link>
         ) : null}
       </div>
