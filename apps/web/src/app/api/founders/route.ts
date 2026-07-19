@@ -101,6 +101,18 @@ export async function GET(req: Request) {
       });
     }
 
-    return NextResponse.json({ founders: rows, thesis });
+    // Soft cap keeps radar/compare snappy after many Identify runs.
+    const limitRaw = Number(url.searchParams.get("limit") || 80);
+    const limit = Math.min(200, Math.max(1, Number.isFinite(limitRaw) ? limitRaw : 80));
+    const total = rows.length;
+    if (rows.length > limit) rows = rows.slice(0, limit);
+
+    return NextResponse.json({
+      founders: rows,
+      thesis,
+      total,
+      limit,
+      truncated: total > limit,
+    });
   });
 }

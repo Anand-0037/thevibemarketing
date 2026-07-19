@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  MarketingPageHero,
+  MarketingSection,
+  MarketingStepList,
+} from "@/components/MarketingPage";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -28,9 +33,9 @@ const BEATS = [
   },
   {
     n: "03",
-    title: "Profile → Gather & screen",
+    title: "Diligence probe → Screen",
     detail:
-      "Open any founder → Edit profile (optional links) → Gather & screen (save → deep research → 3-axis). Or Diligence probe claim first for the Trust money shot. Axes never averaged.",
+      "Open any founder → Diligence probe claim → Run 3-axis screen. Watch Trust contradiction fire. Axes never averaged.",
     href: "/app/radar",
     cta: "Pick a founder",
   },
@@ -54,42 +59,40 @@ const BEATS = [
 
 export default function DemoTourPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <p className="section-label mb-2">Hack-Nation · Challenge 02</p>
-      <h1 className="font-display text-4xl font-bold tracking-tight">
-        Judge demo path (~5 min)
-      </h1>
-      <p className="mt-3 max-w-xl text-muted">
-        Record this path for Maschmeyer judging. Live founders only — no synthetic
-        cast. Press{" "}
-        <kbd className="border border-line px-1.5 py-0.5 font-mono text-xs text-accent">
-          ⌘K
-        </kbd>{" "}
-        inside the app for shortcuts.
-      </p>
+    <>
+      <MarketingPageHero
+        narrow
+        label="Hack-Nation · Challenge 02"
+        title="Judge demo path (~5 min)"
+        lead={
+          <>
+            Record this path for Maschmeyer judging. Live founders only — no
+            synthetic cast. Press{" "}
+            <kbd className="border border-line px-1.5 py-0.5 font-mono text-xs text-accent">
+              ⌘K
+            </kbd>{" "}
+            inside the app for shortcuts.
+          </>
+        }
+        actions={
+          <>
+            <Link href="/app/radar" className="btn-primary focus-ring text-base">
+              Start at radar
+            </Link>
+            <Link href="/vc-brain" className="btn-ghost focus-ring text-base">
+              VC Brain overview
+            </Link>
+          </>
+        }
+      />
 
-      <ol className="mt-12 space-y-6">
-        {BEATS.map((b) => (
-          <li key={b.n} className="flex gap-4">
-            <span className="font-mono text-sm text-accent">{b.n}</span>
-            <div>
-              <h2 className="font-display text-xl font-semibold">{b.title}</h2>
-              <p className="mt-1 text-sm text-muted">{b.detail}</p>
-              <Link
-                href={b.href}
-                className="mt-2 inline-block text-sm text-accent hover:underline"
-              >
-                {b.cta} →
-              </Link>
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      <p className="mt-12 text-sm text-muted">
-        Full script:{" "}
-        <span className="font-mono text-xs">hack/project files/JUDGES.md</span>
-      </p>
-    </div>
+      <MarketingSection flush>
+        <MarketingStepList steps={BEATS} />
+        <p className="mt-4 text-sm text-muted">
+          Full script:{" "}
+          <span className="font-mono text-xs">hack/project files/JUDGES.md</span>
+        </p>
+      </MarketingSection>
+    </>
   );
 }

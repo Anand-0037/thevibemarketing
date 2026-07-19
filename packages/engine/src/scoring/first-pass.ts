@@ -30,21 +30,27 @@ export function firstPassScreen(input: {
 
   const links = founder.links ?? [];
   const claims = founder.claims ?? [];
+  // Materials = deck host OR any public https product/site link OR PDF claim.
+  const hasHttpMaterials = links.some((l) => /^https?:\/\//i.test(l));
   const hasDeck =
     Boolean(product?.domain) ||
+    hasHttpMaterials ||
     links.some((l) => /deck|pitch|doc|notion|drive|dropbox|pdf/i.test(l)) ||
-    claims.some((c) => /deck/i.test(c.text));
+    claims.some((c) => /deck|materials|website|site/i.test(c.text));
   checks.push({
     name: "deck_or_materials",
     ok: hasDeck || !requireDeck,
     detail: hasDeck
-      ? "Deck / materials present"
+      ? hasHttpMaterials || product?.domain
+        ? "Deck / product site / materials present"
+        : "Deck / materials present"
       : requireDeck
-        ? "Deck URL required for inbound"
+        ? "Deck URL or product site required for inbound"
         : "Deck optional for outbound signal",
   });
-  if (requireDeck && !hasDeck) reasons.push("Deck URL required for 24h decision");
-
+  if (requireDeck && !hasDeck) {
+    reasons.push("Deck URL or product site required for 24h decision");
+  }
   const hasWedge = Boolean(product?.oneliner?.trim() || founder.bio?.trim());
   checks.push({
     name: "wedge",

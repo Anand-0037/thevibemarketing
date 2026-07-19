@@ -4,28 +4,43 @@ import { runVcBrainPipeline } from "@/lib/pipeline";
 import { getStore } from "@/lib/store";
 
 export const runtime = "nodejs";
+/** Each founder runs deep research — keep batch small on Vercel. */
+export const maxDuration = 120;
 
-/** POST /api/screen — batch screen all founders (or body.ids). */
+/** Default cap for "Screen all" so the request finishes under platform limits. */
+const DEFAULT_BATCH_CAP = 3;
+
+/** POST /api/screen — batch screen founders (or body.ids). Capped for serverless. */
 export async function POST(req: Request) {
   return withOwnedStore(async () => {
 
     const store = getStore();
     let ids: string[] | undefined;
+    let cap = DEFAULT_BATCH_CAP;
     try {
-      const body = (await req.json()) as { ids?: string[] };
+      const body = (await req.json()) as { ids?: string[]; limit?: number };
       if (Array.isArray(body.ids) && body.ids.length) ids = body.ids;
+      if (typeof body.limit === "number" && Number.isFinite(body.limit)) {
+        cap = Math.min(8, Math.max(1, Math.floor(body.limit)));
+      }
     } catch {
       /* empty body ok */
     }
 
     const founders = await store.listFounders();
-    const targets = ids
-      ? founders.filter((f) => ids!.includes(f.id))
-      : founders;
+    // Prefer highest Founder Score first when screening a batch.
+    const ranked = [...founders].sort(
+      (a, b) => b.founder_score - a.founder_score,
+    );
+    const selected = ids
+      ? ranked.filter((f) => ids!.includes(f.id))
+      : ranked;
+    const skipped = Math.max(0, selected.length - cap);
+    const targets = selected.slice(0, cap);
 
     if (targets.length === 0) {
       return NextResponse.json(
-        { error: "No founders to screen. Seed or ingest first." },
+        { error: "No founders to screen. Run Identify or inbound Apply first." },
         { status: 400 },
       );
     }
@@ -78,6 +93,12 @@ export async function POST(req: Request) {
       partial: failed > 0 && failed < results.length,
       count: results.length,
       failed,
+      skipped,
+      cap,
+      note:
+        skipped > 0
+          ? `Screened top ${targets.length} by Founder Score (capped for serverless). ${skipped} left — open a founder and screen individually.`
+          : undefined,
       results,
     });
   });

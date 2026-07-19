@@ -3,6 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BlogBlocks } from "@/components/BlogBlocks";
 import { JsonLd } from "@/components/JsonLd";
+import {
+  MarketingPageHero,
+  MarketingSection,
+  MarketingSectionHeading,
+} from "@/components/MarketingPage";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
 import {
@@ -49,11 +54,7 @@ export default async function BlogPostPage({
   const hasDiagram = postHasDiagram(post);
 
   return (
-    <article
-      className={`mx-auto px-4 py-16 sm:px-6 ${
-        hasDiagram ? "max-w-4xl" : "max-w-3xl"
-      }`}
-    >
+    <article>
       <JsonLd
         data={articleJsonLd({
           title: post.title,
@@ -62,72 +63,89 @@ export default async function BlogPostPage({
           date: post.date,
         })}
       />
-      <Link href="/blog" className="text-sm text-accent hover:underline">
-        ← Blog
-      </Link>
-      <p className="mt-6 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted">
-        <span>
-          {post.date}
-          {post.tag ? ` · ${post.tag}` : ""}
-        </span>
-        {hasDiagram ? (
-          <span className="border border-accent/40 px-1.5 py-0.5 text-accent">
-            diagrams
+      <MarketingPageHero
+        narrow={!hasDiagram}
+        label="Writing"
+        title={post.title}
+        lead={post.excerpt}
+      >
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Link href="/blog" className="text-accent hover:underline focus-ring">
+            ← Blog
+          </Link>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
+            {post.date}
+            {post.tag ? ` · ${post.tag}` : ""}
           </span>
-        ) : null}
-      </p>
-      <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-balance">
-        {post.title}
-      </h1>
-      <p className="mt-3 text-sm text-muted">
-        {post.author ?? DOGFOOD_OPERATOR.name}
-        {" · "}
-        <a
-          href={DOGFOOD_OPERATOR.x_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent hover:underline"
-        >
-          @{DOGFOOD_OPERATOR.x_handle}
-        </a>
-      </p>
-
-      <BlogBlocks blocks={post.blocks ?? post.body.map((text) => ({ type: "p" as const, text }))} />
-
-      <div className="panel mt-12 p-6">
-        <p className="section-label mb-2">Subscribe</p>
-        <h2 className="font-display text-xl font-semibold">
-          More like this, less feed noise
-        </h2>
-        <p className="mt-2 text-sm text-muted">
-          Newsletter for builders — or open Gravity Audit / the app.
-        </p>
-        <WaitlistForm source="blog" compact cta="Subscribe" />
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link href="/app" className="btn-ghost focus-ring !px-3 !py-1.5 text-sm">
-            Open app
-          </Link>
-          <Link
-            href="/vc-brain"
-            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-          >
-            VC Brain
-          </Link>
-          <Link
-            href="/tools/gravity-audit"
-            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-          >
-            Gravity Audit
-          </Link>
+          {hasDiagram ? (
+            <span className="border border-accent/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent">
+              diagrams
+            </span>
+          ) : null}
         </div>
-      </div>
+        <p className="mt-4 text-sm text-muted">
+          {post.author ?? DOGFOOD_OPERATOR.name}
+          {" · "}
+          <a
+            href={DOGFOOD_OPERATOR.x_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:underline"
+          >
+            @{DOGFOOD_OPERATOR.x_handle}
+          </a>
+        </p>
+      </MarketingPageHero>
+
+      <MarketingSection>
+        <div className={hasDiagram ? "max-w-4xl" : "max-w-3xl"}>
+          <BlogBlocks
+            blocks={
+              post.blocks ?? post.body.map((text) => ({ type: "p" as const, text }))
+            }
+          />
+        </div>
+      </MarketingSection>
+
+      <MarketingSection>
+        <div className="panel max-w-2xl border-accent/30 p-6">
+          <p className="section-label mb-2">Subscribe</p>
+          <h2 className="font-display text-xl font-semibold">
+            More like this, less feed noise
+          </h2>
+          <p className="mt-2 text-sm text-muted">
+            Newsletter for builders — or open Gravity Audit / the app.
+          </p>
+          <WaitlistForm source="blog" compact cta="Subscribe" />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href="/app"
+              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            >
+              Open app
+            </Link>
+            <Link
+              href="/vc-brain"
+              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            >
+              VC Brain
+            </Link>
+            <Link
+              href="/tools/gravity-audit"
+              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            >
+              Gravity Audit
+            </Link>
+          </div>
+        </div>
+      </MarketingSection>
 
       {others.length > 0 ? (
-        <section className="mt-12 border-t border-line pt-8">
-          <p className="section-label mb-4">Keep reading</p>
-          <ul className="space-y-4">
+        <MarketingSection flush>
+          <MarketingSectionHeading label="Keep reading" title="More notes" />
+          <ul className="stagger space-y-0">
             {others.map((p) => (
-              <li key={p.slug}>
+              <li key={p.slug} className="border-t border-line py-5">
                 <Link
                   href={`/blog/${p.slug}`}
                   className="font-display text-lg font-semibold text-ink hover:text-accent"
@@ -143,7 +161,7 @@ export default async function BlogPostPage({
               </li>
             ))}
           </ul>
-        </section>
+        </MarketingSection>
       ) : null}
     </article>
   );

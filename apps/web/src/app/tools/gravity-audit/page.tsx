@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import {
+  MarketingPageHero,
+  MarketingSection,
+} from "@/components/MarketingPage";
 import { ScoreBar } from "@/components/ScoreBar";
 import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
 import { demoDefaultsEnabled } from "@/lib/demo";
@@ -100,25 +104,35 @@ export default function GravityAuditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <p className="section-label mb-2">Free tool · Phase 1</p>
-      <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-        Distribution Gravity Audit
-      </h1>
-      <p className="mt-4 max-w-2xl text-lg text-muted">
-        Paste a GitHub username, <span className="text-ink">owner/repo</span>, or
-        product name — we search public GitHub + HN, optionally Firecrawl/Tavily —
-        then score with the same deterministic gravity math as VC Brain.
-      </p>
+    <>
+      <MarketingPageHero
+        narrow
+        label="Free tool · Phase 1"
+        title="Distribution Gravity Audit"
+        lead={
+          <>
+            Paste a GitHub username,{" "}
+            <span className="text-ink">owner/repo</span>, or product name — we
+            search public GitHub + HN, optionally Firecrawl/Tavily — then score
+            with the same deterministic gravity math as VC Brain.
+          </>
+        }
+        actions={
+          <Link href="/vc-brain" className="btn-ghost focus-ring text-base">
+            See VC Brain
+          </Link>
+        }
+      >
+        <p className="border-l-2 border-accent/50 pl-3 text-sm text-muted">
+          Not investment advice. Scores come from public-signal math — no LLM
+          inventing numbers. Product names resolve via GitHub search (e.g.
+          kaggleingest → Anand-0037/KaggleIngest).
+        </p>
+      </MarketingPageHero>
 
-      <p className="mt-4 border-l-2 border-accent/50 pl-3 text-sm text-muted">
-        Not investment advice. Scores come from public-signal math — no LLM
-        inventing numbers. Product names resolve via GitHub search (e.g.
-        kaggleingest → Anand-0037/KaggleIngest).
-      </p>
-
+      <MarketingSection flush>
       <form
-        className="panel mt-10 space-y-5 p-6"
+        className="panel max-w-2xl space-y-5 p-6 sm:p-7"
         onSubmit={(e) => {
           e.preventDefault();
           runAudit();
@@ -205,20 +219,17 @@ export default function GravityAuditPage() {
           <button type="submit" className="btn-primary focus-ring" disabled={pending}>
             {pending ? "Scoring…" : "Run audit"}
           </button>
-          <Link href="/vc-brain" className="btn-ghost focus-ring">
-            See VC Brain
-          </Link>
         </div>
       </form>
 
       {error ? (
-        <div className="panel mt-6 border-danger/40 p-4 text-sm text-danger" role="alert">
+        <div className="panel mt-6 max-w-2xl border-danger/40 p-4 text-sm text-danger" role="alert">
           {error}
         </div>
       ) : null}
 
       {result?.ok && result.gravity_score != null ? (
-        <div className="mt-10 space-y-6">
+        <div className="mt-10 max-w-2xl space-y-6">
           <div className="panel p-6">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="section-label">Gravity score</p>
@@ -356,6 +367,7 @@ export default function GravityAuditPage() {
           </div>
         </div>
       ) : null}
-    </div>
+      </MarketingSection>
+    </>
   );
 }

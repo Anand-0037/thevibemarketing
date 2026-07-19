@@ -15,7 +15,10 @@ export function NewsletterOk() {
   if (!show) return null;
 
   return (
-    <p className="mb-6 text-sm text-ok" role="status">
+    <p
+      className="panel border-ok/40 bg-ok/5 px-4 py-3 text-sm text-ok"
+      role="status"
+    >
       You&apos;re subscribed. Distribution notes will land when we send.
     </p>
   );

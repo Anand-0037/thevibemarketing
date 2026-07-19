@@ -37,37 +37,51 @@ export function AuthForm({
   const message = state.message;
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-16 sm:px-6">
-      <p className="section-label mb-2">Account</p>
-      <h1 className="font-display text-4xl font-bold tracking-tight">
-        {mode === "login" ? "Sign in" : "Create account"}
-      </h1>
-      <p className="mt-3 text-sm text-muted">
-        {mode === "login"
-          ? googleOAuthEnabled
-            ? "Google or email + password. Sessions stay in HttpOnly cookies."
-            : "Sign in with email + password. Sessions stay in HttpOnly cookies."
-          : googleOAuthEnabled
-            ? "Sign up with Google or email + password (8+ chars, letter + number)."
-            : "Sign up with email + password (8+ chars, letter + number)."}
-      </p>
+    <section className="relative overflow-hidden border-b border-line">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background:
+            "radial-gradient(ellipse 55% 70% at 85% 45%, var(--glow-accent), transparent 60%), radial-gradient(ellipse 40% 50% at 10% 80%, var(--glow-cool), transparent 55%)",
+        }}
+      />
+      <div className="site-shell relative py-14 lg:py-20">
+        <div className="mx-auto w-full max-w-md">
+          <p className="rise section-label mb-4">Account</p>
+          <h1 className="rise-delay font-display text-4xl font-bold tracking-tight sm:text-5xl">
+            {mode === "login" ? "Sign in" : "Create account"}
+          </h1>
+          <p className="rise-delay-2 mt-4 text-base text-muted">
+            {mode === "login"
+              ? googleOAuthEnabled
+                ? "Google or email + password. Sessions stay in HttpOnly cookies."
+                : "Sign in with email + password. Sessions stay in HttpOnly cookies."
+              : googleOAuthEnabled
+                ? "Sign up with Google or email + password (8+ chars, letter + number)."
+                : "Sign up with email + password (8+ chars, letter + number)."}
+          </p>
 
-      {!authReady ? (
-        <div className="panel mt-8 border-warn/40 p-4 text-sm text-muted" role="status">
-          Sign-in is temporarily unavailable. Email{" "}
-          <a
-            href={`mailto:${SITE_EMAIL}`}
-            className="text-accent hover:underline"
-          >
-            {SITE_EMAIL}
-          </a>{" "}
-          or try again shortly.
-        </div>
-      ) : null}
+          {!authReady ? (
+            <div
+              className="panel mt-8 border-warn/40 p-4 text-sm text-muted"
+              role="status"
+            >
+              Sign-in is temporarily unavailable. Email{" "}
+              <a
+                href={`mailto:${SITE_EMAIL}`}
+                className="text-accent hover:underline"
+              >
+                {SITE_EMAIL}
+              </a>{" "}
+              or try again shortly.
+            </div>
+          ) : null}
 
+          <div className="panel mt-8 space-y-0 border-accent/20 p-6 sm:p-7">
       {googleOAuthEnabled ? (
         <>
-          <form action={googleAction} className="mt-8">
+          <form action={googleAction}>
             <input type="hidden" name="next" value={next} />
             <button
               type="submit"
@@ -78,15 +92,13 @@ export function AuthForm({
               {googlePending ? "Redirecting…" : "Continue with Google"}
             </button>
           </form>
-          <div className="my-8 flex items-center gap-3 text-xs text-muted">
+          <div className="my-6 flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-line" />
             or email
             <span className="h-px flex-1 bg-line" />
           </div>
         </>
-      ) : (
-        <div className="mt-8" />
-      )}
+      ) : null}
 
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="next" value={next} />
@@ -166,31 +178,34 @@ export function AuthForm({
               : "Create account"}
         </button>
       </form>
+          </div>
 
-      <p className="mt-8 text-sm text-muted">
-        {mode === "login" ? (
-          <>
-            No account?{" "}
-            <Link
-              href={`/signup?next=${encodeURIComponent(next)}`}
-              className="text-accent hover:underline"
-            >
-              Sign up
-            </Link>
-          </>
-        ) : (
-          <>
-            Already have an account?{" "}
-            <Link
-              href={`/login?next=${encodeURIComponent(next)}`}
-              className="text-accent hover:underline"
-            >
-              Sign in
-            </Link>
-          </>
-        )}
-      </p>
-    </div>
+          <p className="mt-8 text-sm text-muted">
+            {mode === "login" ? (
+              <>
+                No account?{" "}
+                <Link
+                  href={`/signup?next=${encodeURIComponent(next)}`}
+                  className="text-accent hover:underline"
+                >
+                  Sign up
+                </Link>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <Link
+                  href={`/login?next=${encodeURIComponent(next)}`}
+                  className="text-accent hover:underline"
+                >
+                  Sign in
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

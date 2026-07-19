@@ -144,13 +144,21 @@ export default function RadarPage() {
         error?: string;
         count?: number;
         failed?: number;
+        skipped?: number;
+        note?: string;
         results?: Array<{ decision: string }>;
       }>(res);
       if (!res.ok) throw new Error(data?.error || `Screen failed (${res.status})`);
       if (!data) throw new Error("Screen failed — empty response");
       const yes = data.results?.filter((r) => r.decision === "yes").length ?? 0;
       setStatus(
-        `Screened ${data.count ?? 0} · ${yes} yes · ${data.failed ?? 0} failed first-pass/errors`,
+        [
+          `Screened ${data.count ?? 0} · ${yes} yes · ${data.failed ?? 0} failed`,
+          data.skipped ? `${data.skipped} skipped (serverless cap)` : null,
+          data.note,
+        ]
+          .filter(Boolean)
+          .join(" · "),
       );
       await load();
     } catch (e) {

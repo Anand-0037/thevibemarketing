@@ -41,6 +41,8 @@ export {
 export {
   channelIntelligence,
   KNOWN_SOURCING_CHANNELS,
+  LIVE_SOURCING_CHANNELS,
+  SOON_SOURCING_CHANNELS,
   type ChannelStat,
   type ChannelIntelligence,
   type ChannelIntelInput,

@@ -1,17 +1,29 @@
 import type { Founder, Memo, Signal, StoreData } from '../types';
 
-/** Canonical sourcing channels we expect to cover (demo + live connectors). */
-export const KNOWN_SOURCING_CHANNELS = [
+/**
+ * Canonical sourcing channels.
+ * LIVE = Identify can populate today. SOON = honest zero / not fabricated.
+ */
+export const LIVE_SOURCING_CHANNELS = [
   'github',
   'hackernews',
+  'arxiv',
+] as const;
+
+export const SOON_SOURCING_CHANNELS = [
   'producthunt',
   'twitter',
   'linkedin',
   'reddit',
-  'arxiv',
   'accelerator',
   'hackathon',
   'substack',
+] as const;
+
+/** All known labels (stats + underexplored reporting). */
+export const KNOWN_SOURCING_CHANNELS = [
+  ...LIVE_SOURCING_CHANNELS,
+  ...SOON_SOURCING_CHANNELS,
 ] as const;
 
 export type ChannelStat = {
@@ -72,7 +84,8 @@ function normalizeSource(source: string): string {
 
 /**
  * Aggregate signals by source → counts, gravity proxies, founder quality.
- * Ranks channels by volume × signal strength × Founder Score / YES outcomes.
+ * Tips only urge **live** Identify channels — never "prioritize Product Hunt"
+ * when that connector returns zero by design.
  */
 export function channelIntelligence(input: ChannelIntelInput): ChannelIntelligence {
   const signals = input.signals ?? [];
@@ -127,7 +140,6 @@ export function channelIntelligence(input: ChannelIntelInput): ChannelIntelligen
         if (yesByFounder.has(fid)) yes_decisions += 1;
       }
       const avg_founder_score = scoreN ? scoreSum / scoreN : 0;
-      // Quality multiplier: high-score founders + YES outcomes beat empty volume.
       const quality =
         1 +
         avg_founder_score / 100 +
@@ -155,39 +167,33 @@ export function channelIntelligence(input: ChannelIntelInput): ChannelIntelligen
           Math.floor(channels.length / 2)
         ]!.count;
 
-  const underexplored = KNOWN_SOURCING_CHANNELS.filter((ch) => {
+  // Only live Identify channels count as "underexplored to prioritize".
+  const underexplored = LIVE_SOURCING_CHANNELS.filter((ch) => {
     if (!present.has(ch)) return true;
     const row = channels.find((c) => c.source === ch);
     return (row?.count ?? 0) < Math.max(1, Math.floor(medianCount * 0.35));
-  }).slice(0, 5);
-
-  const researchGap = underexplored.filter(
-    (ch) => ch === 'arxiv' || ch === 'accelerator' || ch === 'hackathon',
-  );
+  });
 
   const topQuality = [...channels]
     .filter((c) => c.founders_touched > 0)
     .sort((a, b) => b.avg_founder_score - a.avg_founder_score)[0];
 
-  let tip =
-    underexplored.length === 0
-      ? 'Sourcing mix looks balanced across known channels.'
-      : `Underexplored: prioritize ${underexplored.slice(0, 3).join(', ')} to widen cold-start coverage.`;
+  let tip: string;
+  if (channels.length === 0) {
+    tip =
+      'No signals yet — run Identify (POST /api/ingest) for live GitHub · HN · arXiv.';
+  } else if (underexplored.length === 0) {
+    tip = 'Live Identify mix looks balanced (GitHub · HN · arXiv).';
+  } else {
+    tip = `Underexplored live sources: prioritize ${underexplored.join(', ')} via Identify · refresh.`;
+  }
 
   if (topQuality && topQuality.avg_founder_score >= 50) {
     tip += ` Quality signal: ${topQuality.source} founders average score ${topQuality.avg_founder_score.toFixed(0)}${topQuality.yes_decisions ? ` · ${topQuality.yes_decisions} YES` : ''}.`;
   }
 
-  if (researchGap.length > 0) {
-    tip += ` Research/outbound gap: run ingest for ${researchGap.join(' + ')} (arXiv · accelerators · hackathons).`;
-  } else if (
-    !present.has('arxiv') ||
-    !present.has('accelerator') ||
-    !present.has('hackathon')
-  ) {
-    tip +=
-      ' Tip: POST /api/ingest pulls live GitHub / HN / arXiv only.';
-  }
+  tip +=
+    ' Product Hunt / Twitter / LinkedIn / accelerators / hackathons are not wired — never fabricated.';
 
-  return { channels, underexplored, tip };
+  return { channels, underexplored: [...underexplored], tip };
 }

@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  MarketingPageHero,
+  MarketingSection,
+  MarketingSectionHeading,
+} from "@/components/MarketingPage";
 import { guides } from "@/content/guides";
 import { pageMetadata } from "@/lib/seo";
 
@@ -35,43 +40,59 @@ const quick = [
 
 export default function GuidesPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <p className="section-label mb-2">Docs</p>
-      <h1 className="font-display text-4xl font-bold tracking-tight">Guides</h1>
-      <p className="mt-3 text-muted">
-        Practical paths through the product — marketing fleet and VC Brain.
-      </p>
+    <>
+      <MarketingPageHero
+        narrow
+        label="Docs"
+        title="Guides"
+        lead="Practical paths through the product — marketing fleet and VC Brain."
+        actions={
+          <Link href="/get-started" className="btn-primary focus-ring text-base">
+            Get started
+          </Link>
+        }
+      />
 
-      <h2 className="mt-12 font-display text-xl font-semibold">Quick links</h2>
-      <ul className="mt-4 space-y-3">
-        {quick.map((g) => (
-          <li key={g.href}>
-            <Link
-              href={g.href}
-              className="panel focus-ring block p-4 transition-colors hover:border-accent/40"
-            >
-              <p className="font-display font-semibold">{g.title}</p>
-              <p className="mt-1 text-sm text-muted">{g.blurb}</p>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <MarketingSection>
+        <MarketingSectionHeading label="Shortcuts" title="Quick links" />
+        <ul className="stagger grid gap-3 sm:grid-cols-2">
+          {quick.map((g) => (
+            <li key={g.href}>
+              <Link
+                href={g.href}
+                className="panel focus-ring block h-full p-5 transition-colors hover:border-accent/40"
+              >
+                <p className="font-display text-lg font-semibold">{g.title}</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {g.blurb}
+                </p>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </MarketingSection>
 
-      <h2 className="mt-12 font-display text-xl font-semibold">Playbooks</h2>
-      <ul className="mt-4 space-y-3">
-        {guides.map((g) => (
-          <li key={g.slug}>
-            <Link
-              href={`/guides/${g.slug}`}
-              className="panel focus-ring block p-5 transition-colors hover:border-accent/40"
-            >
-              <h3 className="font-display text-lg font-semibold">{g.title}</h3>
-              <p className="mt-2 text-sm text-muted">{g.excerpt}</p>
-              <p className="mt-3 text-sm text-accent">Read playbook →</p>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <MarketingSection flush>
+        <MarketingSectionHeading label="Deep dives" title="Playbooks" />
+        <ul className="stagger space-y-3">
+          {guides.map((g) => (
+            <li key={g.slug}>
+              <Link
+                href={`/guides/${g.slug}`}
+                className="panel focus-ring block p-5 transition-colors hover:border-accent/40 sm:p-6"
+              >
+                <h3 className="font-display text-lg font-semibold sm:text-xl">
+                  {g.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {g.excerpt}
+                </p>
+                <p className="mt-3 text-sm text-accent">Read playbook →</p>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </MarketingSection>
+    </>
   );
 }

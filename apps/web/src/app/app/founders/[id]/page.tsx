@@ -316,63 +316,28 @@ export default function FounderDetailPage() {
     }
   }, [form, id, load]);
 
-  /** Linear path: save profile → deep research → 3-axis screen → memo-ready. */
+  /**
+   * Linear path: save profile → full pipeline (deep research is inside screen —
+   * do not call /agents/research first or we double-pay latency/keys).
+   */
   const gatherAndScreen = useCallback(async () => {
     setError(null);
     setProfileNote(null);
-    setGatherStep("1/3 · Saving profile to Memory…");
+    setGatherStep("1/2 · Saving profile to Memory…");
     const ok = await saveProfile();
     if (!ok) {
       setGatherStep(null);
       return;
     }
-    setGatherStep("2/3 · Gathering public web evidence (deep diligence)…");
-    setResearchBusy(true);
-    try {
-      const res = await fetch(`/api/agents/research/${id}`, { method: "POST" });
-      const body = (await res.json()) as {
-        error?: string;
-        run_id?: string;
-        dossier?: {
-          findings?: unknown[];
-          open_questions?: string[];
-          partial?: boolean;
-          synthesis?: string;
-          provider_status?: Record<string, string>;
-        };
-      };
-      if (!res.ok) throw new Error(body.error || "Deep research failed");
-      if (body.run_id) setRunId(body.run_id);
-      const findings = body.dossier?.findings?.length ?? 0;
-      const questions = body.dossier?.open_questions?.length ?? 0;
-      setResearchSummary({
-        findings,
-        questions,
-        partial: Boolean(body.dossier?.partial),
-        synthesis: body.dossier?.synthesis ?? "skipped",
-        providers: Object.entries(body.dossier?.provider_status ?? {})
-          .map(([k, v]) => `${k}=${v}`)
-          .join(" · "),
-      });
-      setResearchNote(
-        `Gathered ${findings} findings · ${questions} open questions — running screen…`,
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Gather failed");
-      setGatherStep(null);
-      setResearchBusy(false);
-      return;
-    } finally {
-      setResearchBusy(false);
-    }
-    setGatherStep("3/3 · Running 3-axis screen + Trust + $100K memo…");
+    setGatherStep(
+      "2/2 · Pipeline: signals → agents → deep research → Trust → axes → memo…",
+    );
     await runScreen();
     setGatherStep(null);
     setProfileNote(
-      "Gather complete — open $100K memo. Axes never averaged; gaps listed first.",
+      "Gather complete — open $100K memo. Deep research ran inside the screen (one pass). Axes never averaged; gaps listed first.",
     );
-  }, [id, runScreen, saveProfile]);
-
+  }, [runScreen, saveProfile]);
   async function activate(action: "draft" | "sent" | "applied") {
     setActionBusy(true);
     setActivateNote(null);
@@ -632,7 +597,7 @@ export default function FounderDetailPage() {
       ) : null}
 
       <ScreeningTheater
-        active={screenBusy || Boolean(gatherStep?.includes("3/"))}
+        active={screenBusy || Boolean(gatherStep?.includes("2/"))}
         complete={theaterDone && !screenBusy}
         founderId={id}
       />

@@ -45,10 +45,10 @@ function NavLink({
     <Link
       href={href}
       prefetch
-      className={`focus-ring px-3 py-2 text-sm ${
+      className={`focus-ring block border-l-2 px-3 py-2 text-sm transition-colors ${
         active
-          ? "border border-accent/40 bg-accent/10 text-accent"
-          : "border border-transparent text-muted hover:border-line hover:text-ink"
+          ? "border-accent bg-accent/10 text-accent"
+          : "border-transparent text-muted hover:border-line hover:bg-bg-elevated hover:text-ink"
       }`}
     >
       {label}
@@ -64,27 +64,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [fleetOpen, setFleetOpen] = useState(fleetActive);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-0px)] max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 md:flex-row">
-      <aside className="w-full shrink-0 border-b border-line pb-4 md:sticky md:top-8 md:max-h-[calc(100vh-4rem)] md:w-52 md:self-start md:overflow-y-auto md:border-b-0 md:border-r md:pb-0 md:pr-6">
+    <div className="site-shell flex min-h-[calc(100vh-0px)] flex-col gap-8 py-8 md:flex-row md:gap-10">
+      <aside className="w-full shrink-0 border-b border-line pb-5 md:sticky md:top-8 md:max-h-[calc(100vh-4rem)] md:w-56 md:self-start md:overflow-y-auto md:border-b-0 md:border-r md:pb-0 md:pr-6">
         <Link
           href="/"
-          className="font-display text-sm font-bold text-ink hover:text-accent"
+          className="font-display text-base font-bold tracking-tight text-ink hover:text-accent"
         >
           {SITE_NAME}
         </Link>
-        <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-accent">
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-accent">
           App · VC Brain
         </p>
-        <p className="mt-2 font-mono text-[10px] text-muted">⌘K shortcuts</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <p className="mt-1 font-mono text-[10px] text-muted">⌘K shortcuts</p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <AuthNav />
           <ThemeToggle compact />
         </div>
         <nav
-          className="mt-4 flex max-h-[50vh] flex-col gap-1 overflow-y-auto md:max-h-none"
+          className="mt-5 flex max-h-[50vh] flex-col gap-0.5 overflow-y-auto md:max-h-none"
           aria-label="VC Brain"
         >
-          <p className="px-3 pb-1 font-mono text-[10px] uppercase tracking-widest text-muted">
+          <p className="px-3 pb-2 font-mono text-[10px] uppercase tracking-widest text-muted">
             Challenge 02
           </p>
           {vcBrainItems.map((i) => (
@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             : null}
         </nav>
       </aside>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1 rise">{children}</div>
       <CommandPalette />
     </div>
   );

@@ -20,7 +20,7 @@ assert(normalizeOwnershipTarget("8-12%") === 0.08, '"8-12%" → 0.08 (first numb
 assert(normalizeOwnershipTarget(0.1) === 0.1, "0.1 stays fraction");
 assert(normalizeOwnershipTarget("10%") === 0.1, '"10%" → 0.1');
 
-// --- first-pass: inbound without deck fails ---
+// --- first-pass: inbound without materials fails ---
 const thinG = scoreGravity({
   stars: 5,
   forks: 1,
@@ -35,7 +35,7 @@ const inboundFounder: Founder = {
   id: "f-inbound",
   name: "Inbound Founder",
   handles: {},
-  links: ["https://example.com"],
+  links: [],
   bio: "Building something in AI infra",
   claims: [],
   founder_score: 40,
@@ -53,7 +53,7 @@ const inboundProduct: Product = {
   sector: "AI infra",
   stage: "pre-seed",
   traction_claims: [],
-  // no domain → no deck materials
+  // no domain → no materials
 };
 
 const inboundFail = firstPassScreen({
@@ -70,11 +70,21 @@ const inboundFail = firstPassScreen({
   requireDeck: true,
 });
 
-assert(!inboundFail.pass, "inbound without deck must fail");
+assert(!inboundFail.pass, "inbound without materials must fail");
 assert(
-  inboundFail.reasons.some((r) => /deck/i.test(r)),
-  "fail reason mentions deck",
+  inboundFail.reasons.some((r) => /deck|product site|materials/i.test(r)),
+  "fail reason mentions materials",
 );
+
+const withProductSite = firstPassScreen({
+  founder: {
+    ...inboundFounder,
+    links: ["https://kaggleingest.com/"],
+  },
+  product: inboundProduct,
+  requireDeck: true,
+});
+assert(withProductSite.pass, "inbound with product site URL passes first-pass");
 
 const withDeck = firstPassScreen({
   founder: {
@@ -85,7 +95,6 @@ const withDeck = firstPassScreen({
   requireDeck: true,
 });
 assert(withDeck.pass, "inbound with deck link passes first-pass");
-
 // --- thesis fit match / miss ---
 const thesis: Thesis = {
   sectors: ["AI infra", "developer tools"],

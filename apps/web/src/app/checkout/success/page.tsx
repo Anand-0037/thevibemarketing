@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingPageHero } from "@/components/MarketingPage";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -10,24 +11,24 @@ export const metadata: Metadata = pageMetadata({
 
 export default function CheckoutSuccessPage() {
   return (
-    <div className="mx-auto max-w-lg px-4 py-20 sm:px-6">
-      <p className="section-label mb-2">Billing</p>
-      <h1 className="font-display text-4xl font-bold tracking-tight">
-        You&apos;re in
-      </h1>
-      <p className="mt-4 text-muted">
-        Payment received (or confirmed by Dodo). Open the app to onboard your
-        brand and connect channels. We&apos;ll email next steps if anything is
-        still provisioning.
-      </p>
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/app/onboarding" className="btn-primary focus-ring">
-          Brand onboarding
-        </Link>
-        <Link href="/get-started" className="btn-ghost focus-ring">
-          Get started guide
-        </Link>
-      </div>
-    </div>
+    <MarketingPageHero
+      narrow
+      label="Billing"
+      title="You're in"
+      lead="Payment received (or confirmed by Dodo). Open the app to onboard your brand and connect channels. We'll email next steps if anything is still provisioning."
+      actions={
+        <>
+          <Link
+            href="/app/onboarding"
+            className="btn-primary focus-ring text-base"
+          >
+            Brand onboarding
+          </Link>
+          <Link href="/get-started" className="btn-ghost focus-ring text-base">
+            Get started guide
+          </Link>
+        </>
+      }
+    />
   );
 }
