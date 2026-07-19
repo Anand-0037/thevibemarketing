@@ -36,7 +36,8 @@ export function toClaims(
   });
 }
 
-export { normalizeThesis } from "@vibe/engine";
+// Do not re-export value symbols from @vibe/engine here — client pages import
+// emptyGravity and Turbopack would pull MemoryStore → node:fs/promises.
 
 export function emptyGravity(): Founder["gravity"] {
   return {
