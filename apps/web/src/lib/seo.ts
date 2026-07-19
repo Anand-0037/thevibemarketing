@@ -96,7 +96,7 @@ export function softwareJsonLd() {
       offerCount: "3",
     },
     featureList: [
-      "Autonomous marketing agent fleet",
+      "HITL marketing agent fleet",
       "HITL autonomy dial",
       "SEO and AEO loops",
       "VC Brain distribution-gravity founder sourcing",

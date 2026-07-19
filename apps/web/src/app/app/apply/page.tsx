@@ -99,8 +99,8 @@ export default function ApplyPage() {
         Apply for a $100K check
       </h1>
       <p className="mt-2 max-w-xl text-sm text-muted">
-        Minimum bar: company name + deck (URL or PDF upload). First-pass filter
-        runs before full 3-axis analysis.
+        Minimum bar: company name + materials (product site URL, deck link, or
+        PDF upload). First-pass filter runs before full 3-axis analysis.
       </p>
 
       <form onSubmit={(e) => void onSubmit(e)} className="mt-8 max-w-lg space-y-4">
@@ -119,14 +119,14 @@ export default function ApplyPage() {
         </div>
         <div>
           <label htmlFor="deck_url" className="mb-1 block text-sm text-muted">
-            Deck URL
+            Deck or product URL
           </label>
           <input
             id="deck_url"
             name="deck_url"
             type="url"
             className="input-field focus-ring"
-            placeholder="https://…"
+            placeholder="https://yoursite.com or DocSend / Drive PDF"
             defaultValue={DEMO ? DOGFOOD_OPERATOR.portfolio_url : undefined}
           />
         </div>
@@ -142,9 +142,11 @@ export default function ApplyPage() {
             className="input-field focus-ring text-sm file:mr-3 file:border-0 file:bg-accent/20 file:px-3 file:py-1 file:text-accent"
           />
           <p className="mt-1 text-xs text-muted">
-            Prefer a direct PDF deck URL (DocSend / Drive / Dropbox). Local PDF
-            uploads go to private Supabase Storage when configured — if both URL
-            and file are set, only the URL is used (avoids serverless size limits).
+            Product sites (e.g. your SaaS homepage) are accepted as materials.
+            Direct PDF deck URLs (DocSend / Drive / Dropbox) preferred when you
+            have one. Local PDF uploads go to private Supabase Storage when
+            configured — if both URL and file are set, only the URL is used
+            (avoids serverless size limits).
           </p>
         </div>
         <div>

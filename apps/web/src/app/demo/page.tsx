@@ -28,9 +28,9 @@ const BEATS = [
   },
   {
     n: "03",
-    title: "Diligence probe → Screen",
+    title: "Profile → Gather & screen",
     detail:
-      "Open any founder → Diligence probe claim → Run 3-axis screen. Watch Trust contradiction fire. Axes never averaged.",
+      "Open any founder → Edit profile (optional links) → Gather & screen (save → deep research → 3-axis). Or Diligence probe claim first for the Trust money shot. Axes never averaged.",
     href: "/app/radar",
     cta: "Pick a founder",
   },

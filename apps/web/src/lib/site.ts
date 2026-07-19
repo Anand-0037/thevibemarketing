@@ -84,7 +84,7 @@ export const PUBLIC_ROUTES = [
 
 export const KEYWORDS = [
   "AI marketing agents",
-  "autonomous marketing fleet",
+  "AI marketing fleet",
   "Cursor for marketing",
   "SaaS distribution",
   "agentic marketing",

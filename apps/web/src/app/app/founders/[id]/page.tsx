@@ -68,6 +68,22 @@ export default function FounderDetailPage() {
   const [traceOpenSignal, setTraceOpenSignal] = useState(0);
   const [traceFocus, setTraceFocus] = useState<string | null>(null);
   const [justConverged, setJustConverged] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileNote, setProfileNote] = useState<string | null>(null);
+  const [gatherStep, setGatherStep] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    bio: "",
+    company: "",
+    oneliner: "",
+    sector: "",
+    website: "",
+    github: "",
+    twitter: "",
+    linkedin: "",
+    hn: "",
+  });
   const autoScreened = useRef(false);
 
   function inspectTrust() {
@@ -89,6 +105,26 @@ export default function FounderDetailPage() {
       return;
     }
     setData(body);
+    const f = body.founder;
+    const p = body.product;
+    setForm({
+      name: f.name ?? "",
+      bio: f.bio ?? "",
+      company: p?.name ?? "",
+      oneliner: p?.oneliner ?? "",
+      sector: p?.sector ?? "",
+      website:
+        f.links?.[0] ??
+        (p?.domain
+          ? p.domain.startsWith("http")
+            ? p.domain
+            : `https://${p.domain}`
+          : ""),
+      github: f.handles?.github ?? "",
+      twitter: f.handles?.twitter ?? f.handles?.x ?? "",
+      linkedin: f.handles?.linkedin ?? "",
+      hn: f.handles?.hn ?? "",
+    });
     // Canonicalize short slugs (/openclaw → /live_github_openclaw) so traces/memo links work.
     if (body.canonical_id && body.canonical_id !== id) {
       router.replace(`/app/founders/${body.canonical_id}`);
@@ -241,6 +277,102 @@ export default function FounderDetailPage() {
     }
   }, [runScreen]);
 
+  const saveProfile = useCallback(async (): Promise<boolean> => {
+    setProfileBusy(true);
+    setProfileNote(null);
+    setError(null);
+    try {
+      const links = form.website.trim() ? [form.website.trim()] : undefined;
+      const res = await fetch(`/api/founders/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          bio: form.bio,
+          company: form.company,
+          oneliner: form.oneliner,
+          sector: form.sector,
+          website: form.website,
+          links,
+          handles: {
+            github: form.github,
+            twitter: form.twitter,
+            x: form.twitter,
+            linkedin: form.linkedin,
+            hn: form.hn,
+          },
+        }),
+      });
+      const body = (await res.json()) as { error?: string; note?: string };
+      if (!res.ok) throw new Error(body.error || "Profile save failed");
+      setProfileNote(body.note ?? "Profile saved");
+      await load();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Profile save failed");
+      return false;
+    } finally {
+      setProfileBusy(false);
+    }
+  }, [form, id, load]);
+
+  /** Linear path: save profile → deep research → 3-axis screen → memo-ready. */
+  const gatherAndScreen = useCallback(async () => {
+    setError(null);
+    setProfileNote(null);
+    setGatherStep("1/3 · Saving profile to Memory…");
+    const ok = await saveProfile();
+    if (!ok) {
+      setGatherStep(null);
+      return;
+    }
+    setGatherStep("2/3 · Gathering public web evidence (deep diligence)…");
+    setResearchBusy(true);
+    try {
+      const res = await fetch(`/api/agents/research/${id}`, { method: "POST" });
+      const body = (await res.json()) as {
+        error?: string;
+        run_id?: string;
+        dossier?: {
+          findings?: unknown[];
+          open_questions?: string[];
+          partial?: boolean;
+          synthesis?: string;
+          provider_status?: Record<string, string>;
+        };
+      };
+      if (!res.ok) throw new Error(body.error || "Deep research failed");
+      if (body.run_id) setRunId(body.run_id);
+      const findings = body.dossier?.findings?.length ?? 0;
+      const questions = body.dossier?.open_questions?.length ?? 0;
+      setResearchSummary({
+        findings,
+        questions,
+        partial: Boolean(body.dossier?.partial),
+        synthesis: body.dossier?.synthesis ?? "skipped",
+        providers: Object.entries(body.dossier?.provider_status ?? {})
+          .map(([k, v]) => `${k}=${v}`)
+          .join(" · "),
+      });
+      setResearchNote(
+        `Gathered ${findings} findings · ${questions} open questions — running screen…`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gather failed");
+      setGatherStep(null);
+      setResearchBusy(false);
+      return;
+    } finally {
+      setResearchBusy(false);
+    }
+    setGatherStep("3/3 · Running 3-axis screen + Trust + $100K memo…");
+    await runScreen();
+    setGatherStep(null);
+    setProfileNote(
+      "Gather complete — open $100K memo. Axes never averaged; gaps listed first.",
+    );
+  }, [id, runScreen, saveProfile]);
+
   async function activate(action: "draft" | "sent" | "applied") {
     setActionBusy(true);
     setActivateNote(null);
@@ -268,7 +400,8 @@ export default function FounderDetailPage() {
     }
   }
 
-  const anyBusy = screenBusy || actionBusy || enrichBusy || researchBusy;
+  const anyBusy =
+    screenBusy || actionBusy || enrichBusy || researchBusy || profileBusy;
 
   if (error && !data) {
     return (
@@ -361,6 +494,23 @@ export default function FounderDetailPage() {
           <button
             type="button"
             className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => void gatherAndScreen()}
+            disabled={anyBusy}
+            title="Save profile → deep research (Tavily/Firecrawl/E2B) → 3-axis screen + memo"
+          >
+            {gatherStep ? gatherStep : "Gather & screen"}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => setProfileOpen((v) => !v)}
+            disabled={profileBusy}
+          >
+            {profileOpen ? "Hide profile" : "Edit profile"}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
             onClick={() => void runScreen()}
             disabled={anyBusy}
           >
@@ -405,14 +555,95 @@ export default function FounderDetailPage() {
         </div>
       </div>
 
+      {profileOpen ? (
+        <section className="panel mt-6 border-accent/30 p-5" aria-label="Founder profile">
+          <h2 className="font-display text-lg font-semibold">Founder profile</h2>
+          <p className="mt-1 text-xs text-muted">
+            Enter what you know. Agents use these links as seeds for public-web
+            gather (GitHub handle, product site, X, LinkedIn). Nothing is
+            invented — empty sources stay empty.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["name", "Founder name", "text"],
+                ["company", "Company", "text"],
+                ["oneliner", "One-liner", "text"],
+                ["sector", "Sector", "text"],
+                ["website", "Website / deck URL", "url"],
+                ["github", "GitHub handle", "text"],
+                ["twitter", "X / Twitter handle", "text"],
+                ["linkedin", "LinkedIn slug or URL", "text"],
+                ["hn", "HN username", "text"],
+              ] as const
+            ).map(([key, label, type]) => (
+              <label key={key} className="block text-sm">
+                <span className="mb-1 block text-muted">{label}</span>
+                <input
+                  type={type}
+                  className="input-field focus-ring w-full"
+                  value={form[key]}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, [key]: e.target.value }))
+                  }
+                />
+              </label>
+            ))}
+            <label className="block text-sm sm:col-span-2">
+              <span className="mb-1 block text-muted">Bio</span>
+              <textarea
+                className="input-field focus-ring min-h-[72px] w-full"
+                value={form.bio}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, bio: e.target.value }))
+                }
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+              disabled={anyBusy}
+              onClick={() => void saveProfile()}
+            >
+              {profileBusy ? "Saving…" : "Save to Memory"}
+            </button>
+            <button
+              type="button"
+              className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+              disabled={anyBusy}
+              onClick={() => void gatherAndScreen()}
+            >
+              {gatherStep ?? "Save → Gather & screen"}
+            </button>
+          </div>
+          {profileNote ? (
+            <p className="mt-3 font-mono text-xs text-accent" role="status">
+              {profileNote}
+            </p>
+          ) : null}
+          {gatherStep ? (
+            <p className="mt-2 font-mono text-xs text-muted" role="status">
+              {gatherStep}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <ScreeningTheater
-        active={screenBusy}
+        active={screenBusy || Boolean(gatherStep?.includes("3/"))}
         complete={theaterDone && !screenBusy}
         founderId={id}
       />
       {claimNote ? (
         <p className="mt-3 font-mono text-xs text-accent" role="status">
           {claimNote}
+        </p>
+      ) : null}
+      {!profileOpen && profileNote ? (
+        <p className="mt-3 font-mono text-xs text-accent" role="status">
+          {profileNote}
         </p>
       ) : null}
 

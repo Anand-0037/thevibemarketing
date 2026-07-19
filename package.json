@@ -2,7 +2,7 @@
   "name": "thevibemarketing",
   "private": true,
   "version": "0.1.0",
-  "description": "Autonomous AI agent fleet for SaaS marketing + VC Brain sourcing feature",
+  "description": "Cursor for marketing + VC Brain founder sourcing (distribution gravity, Trust, $100K decision-support)",
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",

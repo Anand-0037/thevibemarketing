@@ -160,16 +160,27 @@ export async function POST(req: Request) {
 
   let deckUrlIsPdf = false;
   let deckUrlNote: string | undefined;
+  let materialsKind: "pdf_deck" | "website" | "unknown" | undefined;
   if (deckUrl) {
     const pre = await preflightRemoteDeck(deckUrl);
-    if (pre.ok) {
-      deckUrlIsPdf = true;
-    } else {
-      // Product homepages are allowed as evidence links (not pitch decks).
-      // Direct PDF hosts still preferred for first-pass.
+    materialsKind = pre.kind;
+    if (!pre.accepted) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            pre.error ||
+            "Deck / materials URL is not allowed (use a public https product site or PDF host).",
+        },
+        { status: 400 },
+      );
+    }
+    deckUrlIsPdf = pre.ok && pre.kind === "pdf_deck";
+    // Soft notes only — never present website materials as a hard error.
+    if (pre.note) deckUrlNote = pre.note;
+    else if (pre.kind === "website") {
       deckUrlNote =
-        pre.error ||
-        "URL is not a verified PDF deck — stored as company/website evidence.";
+        "Product/website URL accepted as materials (not a PDF deck).";
     }
   }
 
@@ -319,6 +330,7 @@ export async function POST(req: Request) {
         first_pass,
         deck_uploaded: Boolean(body.deck_file_name),
         deck_url_is_pdf: deckUrlIsPdf,
+        materials_kind: materialsKind ?? null,
         deck_storage_path: deck_storage_path ?? null,
         identity: "applicant",
         note: [

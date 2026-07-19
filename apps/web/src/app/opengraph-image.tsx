@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "vibemarketer — Autonomous AI Marketing Fleet";
+export const alt = "vibemarketer — Cursor for marketing · VC Brain sourcing";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -81,8 +81,8 @@ export default function OpenGraphImage() {
               lineHeight: 1.35,
             }}
           >
-            Autonomous AI Agent Fleet for your Marketing Department. Operates
-            24/365.
+            Brand brief, campaigns, and approval-gated drafts. Same engine
+            powers VC Brain founder sourcing.
           </div>
         </div>
         <div

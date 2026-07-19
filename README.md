@@ -4,7 +4,7 @@
 **Repo:** [Anand-0037/thevibemarketing](https://github.com/Anand-0037/thevibemarketing)  
 **Judge pack:** [`../hack/project files/JUDGES.md`](../hack/project%20files/JUDGES.md) · **Status:** [`../hack/STATUS.md`](../hack/STATUS.md)
 
-> Cursor for marketing — an autonomous AI agent fleet that runs a SaaS founder’s marketing department 24/365.  
+> Cursor for marketing — brand brief, campaigns, and approval-gated drafts for SaaS founders.  
 > **VC Brain** is the same engine’s sourcing head: find, screen, and diligence founders by **distribution gravity**, then recommend a **$100K** check.
 
 ---
