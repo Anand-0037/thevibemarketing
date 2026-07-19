@@ -93,11 +93,12 @@ export default function PricingPage() {
                 t.highlight ? "border-accent/50 ring-1 ring-accent/30" : ""
               }`}
             >
-              {t.highlight ? (
-                <p className="section-label mb-2 text-accent">Most used</p>
-              ) : (
-                <p className="section-label mb-2 opacity-0">·</p>
-              )}
+              <p
+                className={`section-label mb-2 ${t.highlight ? "text-accent" : "invisible"}`}
+                aria-hidden={!t.highlight}
+              >
+                Most used
+              </p>
               <h2 className="font-display text-2xl font-semibold">{t.name}</h2>
               <p className="mt-1 text-sm text-muted">{t.forWhom}</p>
               <p className="mt-6 font-display text-4xl font-bold">

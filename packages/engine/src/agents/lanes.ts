@@ -14,6 +14,7 @@ import {
   fetchRepoCommits,
   fetchRepoLanguages,
   fetchRepoReadme,
+  fetchUserPublicRepos,
   parseGithubInput,
 } from "../connectors/github";
 import {
@@ -105,22 +106,72 @@ export async function runCodeForensicsLane(
     };
   }
 
-  // Prefer explicit repo; else use most recently updated owned repo via user endpoint is heavy —
-  // if only owner, skip clone and just note handle.
+  // Owner only: pull followers + public repos for gravity; promote top repo for clone.
   if (!repo?.repo) {
-    evidence.push(`GitHub user @${owner} — no repo pin; skip clone`);
-    return {
-      role: "code_forensics",
-      ok: true,
-      providers: ["github"],
-      evidence,
-      latency_ms: Date.now() - t0,
-    };
+    providers.push("github");
+    const userPack = await fetchUserPublicRepos(owner, { limit: 6 });
+    if (!userPack.ok || !userPack.user) {
+      return {
+        role: "code_forensics",
+        ok: false,
+        providers,
+        evidence: [
+          `GitHub user @${owner} — profile fetch failed: ${userPack.error ?? "unknown"}`,
+        ],
+        error: userPack.error ?? "GitHub user fetch failed",
+        latency_ms: Date.now() - t0,
+      };
+    }
+    evidence.push(
+      `GitHub @${userPack.user.login}: ${userPack.user.followers} followers · ${userPack.items.length} public repos`,
+    );
+    signal_payloads.push({
+      source: "github",
+      url: userPack.user.html_url ?? `https://github.com/${owner}`,
+      payload: {
+        followers: userPack.user.followers,
+        audience: userPack.user.followers,
+        post_count: Math.max(1, userPack.items.length),
+        shipping_events: userPack.items.length,
+        engagement:
+          userPack.user.followers +
+          userPack.items.reduce((n, i) => n + (i.metrics?.stars ?? 0), 0),
+      },
+    });
+    const top = [...userPack.items].sort(
+      (a, b) => (b.metrics?.stars ?? 0) - (a.metrics?.stars ?? 0),
+    )[0];
+    if (top?.title?.includes("/")) {
+      const [o, r] = top.title.split("/");
+      if (o && r) {
+        repo = { owner: o, repo: r };
+        signal_payloads.push({
+          source: "github",
+          url: top.url,
+          payload: {
+            stars: top.metrics?.stars ?? 0,
+            forks: top.metrics?.forks ?? 0,
+            engagement: (top.metrics?.stars ?? 0) + (top.metrics?.forks ?? 0),
+            title: top.title,
+          },
+        });
+        evidence.push(`Top repo ${top.title}: ⭐${top.metrics?.stars ?? 0}`);
+      }
+    }
+    if (!repo?.repo) {
+      return {
+        role: "code_forensics",
+        ok: true,
+        providers,
+        evidence,
+        signal_payloads,
+        latency_ms: Date.now() - t0,
+      };
+    }
   }
 
   const full = `${repo.owner}/${repo.repo}`;
   providers.push("github");
-
   const [commits, readme, languages] = await Promise.all([
     fetchRepoCommits(repo.owner, repo.repo, 15),
     fetchRepoReadme(repo.owner, repo.repo),

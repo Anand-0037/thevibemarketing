@@ -27,23 +27,23 @@ const BEATS = [
     n: "02",
     title: "Gravity compare",
     detail:
-      "Top two founders by distribution gravity — earned pull vs quiet pedigree. Illustrative numbers on marketing pages are labeled.",
+      "Top two founders by distribution gravity — earned pull vs quiet pedigree. Cold-start builders can outrank quiet pedigrees.",
     href: "/app/compare",
     cta: "Open compare",
   },
   {
     n: "03",
-    title: "Diligence probe → Screen",
+    title: "Profile socials → Gather & screen",
     detail:
-      "Open any founder → Diligence probe claim → Run 3-axis screen. Watch Trust contradiction fire. Axes never averaged.",
+      "Open a founder → Edit profile (GitHub · site · X · LinkedIn) → Gather & screen. Agents pull public web via Tavily · Firecrawl · GitHub · E2B, then Trust + three axes.",
     href: "/app/radar",
     cta: "Pick a founder",
   },
   {
     n: "04",
-    title: "$100K memo + trace",
+    title: "$100K memo + agent trace",
     detail:
-      "Open memo → decision-support YES/NO/WATCH with gaps flagged. Click Trust → agent trace (url_diligence when evidence URLs exist).",
+      "Open memo → decision-support YES/NO/WATCH with gaps first. Open agent trace for profile_enrich · deep_research · url_diligence steps.",
     href: "/app/radar",
     cta: "From founder → memo",
   },
@@ -51,7 +51,7 @@ const BEATS = [
     n: "05",
     title: "Thesis + NL query + Activate",
     detail:
-      "Configurable thesis · compound NL query · Activate draft outreach → Converge badge into the same funnel as inbound apply.",
+      "Configurable thesis · compound NL query · Activate draft outreach → Converge into the same funnel as inbound apply.",
     href: "/app/thesis",
     cta: "Thesis engine",
   },
@@ -66,12 +66,12 @@ export default function DemoTourPage() {
         title="Judge demo path (~5 min)"
         lead={
           <>
-            Record this path for Maschmeyer judging. Live founders only — no
-            synthetic cast. Press{" "}
+            Live founders only — no synthetic cast. Press{" "}
             <kbd className="border border-line px-1.5 py-0.5 font-mono text-xs text-accent">
               ⌘K
             </kbd>{" "}
-            inside the app for shortcuts.
+            inside the app for shortcuts. Record Radar → Compare → Gather &amp;
+            screen → Memo → Trace.
           </>
         }
         actions={
@@ -88,9 +88,11 @@ export default function DemoTourPage() {
 
       <MarketingSection flush>
         <MarketingStepList steps={BEATS} />
-        <p className="mt-4 text-sm text-muted">
-          Full script:{" "}
-          <span className="font-mono text-xs">hack/project files/JUDGES.md</span>
+        <p className="mt-6 max-w-xl text-sm text-muted">
+          Inbound-only founders score low until public signal is attached. Add a
+          GitHub handle + product URL on the profile, then run{" "}
+          <strong className="text-ink">Gather &amp; screen</strong> so
+          distribution gravity can update from live APIs.
         </p>
       </MarketingSection>
     </>

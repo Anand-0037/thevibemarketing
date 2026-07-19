@@ -186,14 +186,33 @@ export async function collectResearchEvidence(opts: {
     }
   }
 
-  // Scrape top unique http(s) URLs (budgeted)
+  // Prefer founder-supplied site/social URLs first, then search hits
+  const profileUrls: string[] = [];
+  for (const l of opts.founder.links ?? []) {
+    if (/^https?:\/\//i.test(l)) profileUrls.push(l);
+  }
+  if (opts.product?.domain) {
+    const d = opts.product.domain.trim();
+    profileUrls.push(d.startsWith("http") ? d : `https://${d}`);
+  }
+  const gh = opts.founder.handles.github?.replace(/^@/, "");
+  if (gh) profileUrls.push(`https://github.com/${gh}`);
+  const tw = (opts.founder.handles.twitter ?? opts.founder.handles.x)?.replace(
+    /^@/,
+    "",
+  );
+  if (tw) profileUrls.push(`https://x.com/${tw}`);
+
   const scrapeTargets = [
     ...new Set(
-      hits
-        .map((h) => h.url)
-        .filter((u) => /^https?:\/\//i.test(u) && !u.includes("signal://")),
+      [
+        ...profileUrls,
+        ...hits
+          .map((h) => h.url)
+          .filter((u) => /^https?:\/\//i.test(u) && !u.includes("signal://")),
+      ],
     ),
-  ].slice(0, maxScrapes);
+  ].slice(0, Math.max(maxScrapes, 4));
 
   if (fcKey && scrapeTargets.length > 0) {
     const scrapeJobs = scrapeTargets.map(async (url) => {

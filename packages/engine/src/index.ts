@@ -93,6 +93,11 @@ export {
   type DeepResearchOpts,
 } from "./research/deep-research";
 export { planResearchQueries } from "./research/plan";
+export {
+  enrichFromProfile,
+  type ProfileEnrichResult,
+  type ProfileSignal,
+} from "./research/profile-enrich";
 export type {
   ResearchDossier,
   ResearchFinding,

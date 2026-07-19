@@ -277,6 +277,15 @@ export default function FounderDetailPage() {
     }
   }, [runScreen]);
 
+  // Inbound / thin profiles: open the profile editor so judges add socials first.
+  useEffect(() => {
+    if (!data) return;
+    const thin =
+      (data.founder.founder_score ?? 0) < 25 ||
+      !(data.founder.handles?.github || data.founder.links?.length);
+    if (thin) setProfileOpen(true);
+  }, [data?.founder.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const saveProfile = useCallback(async (): Promise<boolean> => {
     setProfileBusy(true);
     setProfileNote(null);
@@ -524,9 +533,13 @@ export default function FounderDetailPage() {
         <section className="panel mt-6 border-accent/30 p-5" aria-label="Founder profile">
           <h2 className="font-display text-lg font-semibold">Founder profile</h2>
           <p className="mt-1 text-xs text-muted">
-            Enter what you know. Agents use these links as seeds for public-web
-            gather (GitHub handle, product site, X, LinkedIn). Nothing is
-            invented — empty sources stay empty.
+            Public socials drive score. Without GitHub / site / X, inbound
+            applications stay ~low gravity (thin signal). Agents use these as
+            seeds for Tavily · Firecrawl · GitHub · E2B — nothing is invented.
+          </p>
+          <p className="mt-2 border border-accent/30 bg-accent/5 px-3 py-2 font-mono text-[11px] text-accent">
+            Recommended for real scores: GitHub handle + product website. Then
+            Gather &amp; screen.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {(
@@ -535,8 +548,8 @@ export default function FounderDetailPage() {
                 ["company", "Company", "text"],
                 ["oneliner", "One-liner", "text"],
                 ["sector", "Sector", "text"],
-                ["website", "Website / deck URL", "url"],
-                ["github", "GitHub handle", "text"],
+                ["website", "Website / deck URL *", "url"],
+                ["github", "GitHub handle * (e.g. Anand-0037)", "text"],
                 ["twitter", "X / Twitter handle", "text"],
                 ["linkedin", "LinkedIn slug or URL", "text"],
                 ["hn", "HN username", "text"],
@@ -547,6 +560,13 @@ export default function FounderDetailPage() {
                 <input
                   type={type}
                   className="input-field focus-ring w-full"
+                  placeholder={
+                    key === "github"
+                      ? "username or user/repo"
+                      : key === "website"
+                        ? "https://yoursite.com"
+                        : undefined
+                  }
                   value={form[key]}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, [key]: e.target.value }))

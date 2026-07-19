@@ -6,6 +6,7 @@ import { buildMemo } from "./memo/build";
 import type { MemoryStore } from "./memory/store";
 import { executeAutomatedDiligence } from "./pipeline/diligence";
 import { runDeepResearch } from "./research/deep-research";
+import { enrichFromProfile } from "./research/profile-enrich";
 import type { ResearchDossier } from "./research/types";
 import { screenAxes } from "./scoring/axes";
 import { firstPassScreen, type FirstPassResult } from "./scoring/first-pass";
@@ -82,13 +83,66 @@ export async function runVcBrainPipeline(
     store,
   );
 
+  // Profile-seeded public pull (GH followers/stars · Tavily · Firecrawl · E2B).
+  // This is what lifts cold inbound scores off ~11 when socials/site exist.
+  try {
+    const profilePack = await enrichFromProfile(founder, product);
+    for (const sp of profilePack.signals) {
+      await store.addSignal({
+        entity_type: "founder",
+        entity_id: founderId,
+        source: sp.source,
+        url: sp.url,
+        payload: sp.payload,
+        observed_at: new Date().toISOString(),
+      });
+    }
+    // Persist discovered GH handle if missing
+    if (profilePack.github_repo && !founder.handles.github) {
+      const owner = profilePack.github_repo.split("/")[0];
+      if (owner) {
+        await store.upsertFounder({
+          id: founderId,
+          name: founder.name,
+          handles: { ...founder.handles, github: owner },
+        });
+      }
+    }
+    await step(
+      run_id,
+      "profile_enrich",
+      {
+        providers: profilePack.providers_used,
+        signals: profilePack.signals.length,
+        github_repo: profilePack.github_repo,
+      },
+      {
+        errors: profilePack.errors,
+        evidence_n: profilePack.evidence.length,
+      },
+      profilePack.evidence,
+      store,
+    );
+  } catch (e) {
+    await step(
+      run_id,
+      "profile_enrich",
+      { founder_id: founderId },
+      { ok: false },
+      [e instanceof Error ? e.message : "profile enrich failed"],
+      store,
+    );
+  }
+
   // Multi-agent enrichment — scoped API endpoints per role (E2B / GH / Tavily / Firecrawl / SM / HN).
   let agents: AgentFleetResult | undefined;
   try {
+    // Re-load founder after profile enrich (handles may have updated)
+    const founderNow = (await store.getFounder(founderId)) ?? founder;
     agents = await runAgentLanes({
-      founder,
+      founder: founderNow,
       product,
-      claims: founder.claims,
+      claims: founderNow.claims,
     });
     for (const lane of agents.lanes) {
       for (const sp of lane.signal_payloads ?? []) {
@@ -144,14 +198,16 @@ export async function runVcBrainPipeline(
   let research: ResearchDossier | undefined;
   try {
     const signalsForResearch = await store.getSignalsFor(founderId);
+    const founderForResearch =
+      (await store.getFounder(founderId)) ?? founder;
     research = await runDeepResearch({
-      founder,
+      founder: founderForResearch,
       product,
       signals: signalsForResearch,
       run_id,
       store,
       budgetMs: Number(process.env.DEEP_RESEARCH_TIMEOUT_MS) || 55_000,
-      maxScrapes: Number(process.env.DEEP_RESEARCH_MAX_SCRAPES) || 3,
+      maxScrapes: Number(process.env.DEEP_RESEARCH_MAX_SCRAPES) || 5,
     });
   } catch (e) {
     await step(
