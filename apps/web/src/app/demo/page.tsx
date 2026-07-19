@@ -3,18 +3,18 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Product tour",
+  title: "Judge demo path",
   path: "/demo",
   description:
-    "Tour vibemarketer — live Identify, gravity compare, screening, $100K memo, and the marketing fleet.",
+    "Hack-Nation Challenge 02 demo — Identify, gravity, Trust contradiction, $100K memo, agent trace.",
 });
 
 const BEATS = [
   {
     n: "01",
-    title: "Identify founders",
+    title: "Identify founders (live)",
     detail:
-      "Pull live signals from GitHub, HN, arXiv, and more into the radar. Empty is correct until you ingest.",
+      "Sign in → Radar → Identify · refresh. Live GitHub, Hacker News, arXiv only. Empty until you ingest is correct.",
     href: "/app/radar",
     cta: "Open radar",
   },
@@ -22,46 +22,46 @@ const BEATS = [
     n: "02",
     title: "Gravity compare",
     detail:
-      "Rank the top two founders on your radar by distribution gravity — earned attention vs quiet pedigree.",
+      "Top two founders by distribution gravity — earned pull vs quiet pedigree. Illustrative numbers on marketing pages are labeled.",
     href: "/app/compare",
     cta: "Open compare",
   },
   {
     n: "03",
-    title: "Screen + Diligence",
+    title: "Diligence probe → Screen",
     detail:
-      "Open any founder → run the 3-axis screen, Trust/Diligence claims, and agent lanes.",
+      "Open any founder → Diligence probe claim → Run 3-axis screen. Watch Trust contradiction fire. Axes never averaged.",
     href: "/app/radar",
     cta: "Pick a founder",
   },
   {
     n: "04",
-    title: "$100K memo",
+    title: "$100K memo + trace",
     detail:
-      "Evidence-backed memo: axes never averaged, per-claim Trust, explicit gaps, yes/no/watch.",
+      "Open memo → decision-support YES/NO/WATCH with gaps flagged. Click Trust → agent trace (url_diligence when evidence URLs exist).",
     href: "/app/radar",
-    cta: "From a founder page",
+    cta: "From founder → memo",
   },
   {
     n: "05",
-    title: "Marketing fleet",
+    title: "Thesis + NL query + Activate",
     detail:
-      "Brand onboarding → Studio drafts → HITL queue. Same engine, create-distribution head.",
-    href: "/app/onboarding",
-    cta: "Start onboarding",
+      "Configurable thesis · compound NL query · Activate draft outreach → Converge badge into the same funnel as inbound apply.",
+    href: "/app/thesis",
+    cta: "Thesis engine",
   },
 ] as const;
 
 export default function DemoTourPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <p className="section-label mb-2">Product tour</p>
+      <p className="section-label mb-2">Hack-Nation · Challenge 02</p>
       <h1 className="font-display text-4xl font-bold tracking-tight">
-        See the engine in five minutes
+        Judge demo path (~5 min)
       </h1>
       <p className="mt-3 max-w-xl text-muted">
-        One spine: ingest → memory → score → trace. Two heads: marketing fleet and
-        VC Brain. Founders are live data only — press{" "}
+        Record this path for Maschmeyer judging. Live founders only — no synthetic
+        cast. Press{" "}
         <kbd className="border border-line px-1.5 py-0.5 font-mono text-xs text-accent">
           ⌘K
         </kbd>{" "}
@@ -86,17 +86,10 @@ export default function DemoTourPage() {
         ))}
       </ol>
 
-      <div className="mt-12 flex flex-wrap gap-3">
-        <Link href="/app/radar" className="btn-primary focus-ring">
-          Start at radar
-        </Link>
-        <Link href="/get-started" className="btn-ghost focus-ring">
-          Full get-started
-        </Link>
-        <Link href="/app" className="btn-ghost focus-ring">
-          Command center
-        </Link>
-      </div>
+      <p className="mt-12 text-sm text-muted">
+        Full script:{" "}
+        <span className="font-mono text-xs">hack/project files/JUDGES.md</span>
+      </p>
     </div>
   );
 }

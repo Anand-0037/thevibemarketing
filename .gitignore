@@ -13,6 +13,7 @@ data/stores/
 data/uploads/
 data/waitlist.jsonl
 data/marketing.json
+data/smoke-store.json
 *.log
 *.db
 .DS_Store
@@ -20,6 +21,8 @@ data/marketing.json
 coverage
 .pnpm-store
 .netlify
-scripts/
+# Local-only ops probes at repo root (API keys / live sandboxes).
+# Leading slash = root only — do NOT ignore packages/engine/**/scripts/
+/scripts/
 apps/web/pnpm-lock.yaml
 sqlite_mcp_server.db

@@ -498,17 +498,22 @@ export const AGENT_ENDPOINT_CATALOG = [
   },
   {
     key: "TAVILY_API_KEY",
-    role: "web_research / claim_validator",
+    role: "web_research / claim_validator / deep_research",
     endpoints: ["POST https://api.tavily.com/search"],
   },
   {
     key: "FIRECRAWL_API_KEY",
-    role: "web_research / diligence",
+    role: "web_research / diligence / deep_research",
     endpoints: [
       "POST /v2/map",
       "POST /v2/scrape (markdown)",
       "POST /v2/search",
     ],
+  },
+  {
+    key: "OPENAI_API_KEY",
+    role: "deep_research_synthesize (cite-only) / memo polish",
+    endpoints: ["POST /v1/chat/completions (JSON, no invented facts)"],
   },
   {
     key: "SUPERMEMORY_API_KEY",

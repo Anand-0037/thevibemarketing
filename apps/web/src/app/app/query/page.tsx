@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 const EXAMPLES = [
+  "technical founder, Berlin, AI infra, enterprise traction, no prior VC backing",
   "technical founder, AI infra, no prior VC backing",
   "enterprise traction, developer tools, pre-seed",
   "hidden gem distribution gravity",

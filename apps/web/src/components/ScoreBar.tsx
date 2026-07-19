@@ -56,7 +56,9 @@ export function ScoreBar({
     return () => cancelAnimationFrame(raf);
   }, [value, animate]);
 
-  const pct = Math.max(0, Math.min(100, (display / max) * 100));
+  const safeDisplay = Number.isFinite(display) ? display : 0;
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 100;
+  const pct = Math.max(0, Math.min(100, (safeDisplay / safeMax) * 100));
   return (
     <div className="w-full">
       {(label || showValue) && (
@@ -64,7 +66,7 @@ export function ScoreBar({
           {label ? <span className="text-xs text-muted">{label}</span> : <span />}
           {showValue ? (
             <span className="font-mono text-xs text-ink tabular-nums">
-              {display.toFixed(0)}
+              {safeDisplay.toFixed(0)}
             </span>
           ) : null}
         </div>
@@ -72,9 +74,9 @@ export function ScoreBar({
       <div
         className="h-1.5 w-full overflow-hidden bg-line"
         role="meter"
-        aria-valuenow={Math.round(display)}
+        aria-valuenow={Math.round(safeDisplay)}
         aria-valuemin={0}
-        aria-valuemax={max}
+        aria-valuemax={safeMax}
         aria-label={label ?? "Score"}
       >
         <div className={`h-full ${toneClass[tone]}`} style={{ width: `${pct}%` }} />

@@ -14,10 +14,12 @@ function trendTone(trend: AxisScore["trend"]): string {
 }
 
 export function AxisPanel({ title, axis, description }: Props) {
+  const score = Number.isFinite(axis?.score) ? axis.score : 0;
+  const confidence = Number.isFinite(axis?.confidence) ? axis.confidence : 0;
   const tone =
-    axis.abstain || axis.score < 45
+    axis?.abstain || score < 45
       ? "danger"
-      : axis.score >= 70
+      : score >= 70
         ? "accent"
         : "warn";
 
@@ -33,31 +35,35 @@ export function AxisPanel({ title, axis, description }: Props) {
           ) : null}
         </div>
         <span className="font-mono text-2xl font-bold tabular-nums text-ink">
-          {axis.score.toFixed(0)}
+          {score.toFixed(0)}
         </span>
       </div>
-      <ScoreBar value={axis.score} tone={tone} showValue={false} />
+      <ScoreBar value={score} tone={tone} showValue={false} />
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span
           className={`border px-2 py-0.5 font-mono ${
-            axis.stance === "bullish"
+            axis?.stance === "bullish"
               ? "border-ok/40 text-ok"
-              : axis.stance === "bear"
+              : axis?.stance === "bear"
                 ? "border-danger/40 text-danger"
                 : "border-line text-muted"
           }`}
         >
-          {axis.label}
+          {axis?.label ?? "—"}
         </span>
-        <span className={`font-mono ${trendTone(axis.trend)}`}>{axis.trend}</span>
+        <span className={`font-mono ${trendTone(axis?.trend ?? "stable")}`}>
+          {axis?.trend ?? "stable"}
+        </span>
         <span className="font-mono text-muted">
-          conf {(axis.confidence * 100).toFixed(0)}%
+          conf {(confidence * 100).toFixed(0)}%
         </span>
-        {axis.abstain ? (
+        {axis?.abstain ? (
           <span className="font-mono text-warn">abstain</span>
         ) : null}
       </div>
-      <p className="text-sm leading-relaxed text-muted">{axis.rationale}</p>
+      <p className="text-sm leading-relaxed text-muted">
+        {axis?.rationale ?? "No rationale yet — run screen."}
+      </p>
     </section>
   );
 }

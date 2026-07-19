@@ -29,8 +29,8 @@ export function Footer() {
             <span className="font-display text-lg font-bold">{SITE_NAME}</span>
           </Link>
           <p className="mt-3 max-w-xs text-base text-muted">
-            Autonomous AI agent fleet for your marketing department. Operates
-            24/365.
+            Cursor for marketing — brand brief, campaign plans, and drafts you
+            approve. Same engine powers VC Brain.
           </p>
           <p className="mt-3 text-sm">
             <a

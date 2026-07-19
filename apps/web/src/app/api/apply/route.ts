@@ -224,7 +224,7 @@ export async function POST(req: Request) {
     deck_uploaded: Boolean(body.deck_file_path),
     identity: "applicant",
     note: first_pass.pass
-      ? "Application received — first-pass cleared. Activate for full 3-axis screen."
+      ? "First-pass cleared — run 3-axis screen next (same funnel as outbound Converge)."
       : "Application stored — first-pass flagged issues (see checks).",
   });
   });

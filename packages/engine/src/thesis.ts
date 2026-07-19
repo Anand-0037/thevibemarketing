@@ -43,7 +43,13 @@ export function normalizeThesis(raw: Record<string, unknown> | Partial<Thesis>):
 
 export function defaultThesis(): Thesis {
   return {
-    sectors: ["AI infra", "developer tools", "agentic software"],
+    // MGV-flavored default — early enterprise / technical SaaS, $100K scout check.
+    sectors: [
+      "AI infra",
+      "developer tools",
+      "enterprise SaaS",
+      "agentic software",
+    ],
     stage: "pre-seed",
     geo: "global",
     check_size: 100_000,

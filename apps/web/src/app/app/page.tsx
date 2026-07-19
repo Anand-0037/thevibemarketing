@@ -32,7 +32,7 @@ const MKT = [
   {
     href: "/app/onboarding",
     title: "Brand onboarding",
-    blurb: "URL → brand memory (Firecrawl when keyed)",
+    blurb: "URL → brand brief and on-voice context",
   },
   {
     href: "/app/studio",
@@ -61,25 +61,28 @@ export default function AppHomePage() {
     <div>
       <p className="section-label mb-2">Command center</p>
       <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-        One engine, two heads
+        VC Brain · start here
       </h1>
       <p className="mt-3 max-w-xl text-sm text-muted">
-        Marketing fleet creates distribution. VC Brain measures it to source
-        founders. Shared spine: ingest → memory → reason → trace.
+        Investor workflow: Identify → gravity → 3-axis screen → Trust → $100K
+        memo. Marketing fleet is below (same engine).
       </p>
       <div className="panel mt-6 max-w-xl border-accent/30 p-4">
-        <p className="section-label mb-1">Keyboard</p>
-        <p className="font-display text-lg font-semibold">
-          Press{" "}
-          <kbd className="border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-sm text-accent">
+        <p className="section-label mb-1">Judge path</p>
+        <p className="text-sm text-muted">
+          Radar → Identify · refresh → Diligence probe claim → Screen → memo →
+          trace. Press{" "}
+          <kbd className="border border-accent/40 bg-accent/10 px-1.5 py-0.5 font-mono text-xs text-accent">
             ⌘K
           </kbd>{" "}
-          for shortcuts
+          for shortcuts.
         </p>
-        <p className="mt-2 text-sm text-muted">
-          Radar · Gravity compare · Studio · NL query · Report. Floating ⌘K
-          (bottom-right).
-        </p>
+        <Link
+          href="/demo"
+          className="mt-3 inline-block text-sm text-accent hover:underline"
+        >
+          Full demo checklist →
+        </Link>
       </div>
 
       <section className="mt-12">

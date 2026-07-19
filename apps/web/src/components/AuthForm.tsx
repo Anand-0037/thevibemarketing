@@ -13,6 +13,9 @@ const initial: AuthActionState = {};
 
 type Mode = "login" | "signup";
 
+const googleOAuthEnabled =
+  process.env.NEXT_PUBLIC_GOOGLE_OAUTH === "1";
+
 export function AuthForm({
   mode,
   next = "/app",
@@ -40,45 +43,49 @@ export function AuthForm({
       </h1>
       <p className="mt-3 text-sm text-muted">
         {mode === "login"
-          ? "Google or email + password. Sessions stay in HttpOnly cookies."
-          : "Sign up with Google or email + password (8+ chars, letter + number)."}
+          ? googleOAuthEnabled
+            ? "Google or email + password. Sessions stay in HttpOnly cookies."
+            : "Sign in with email + password. Sessions stay in HttpOnly cookies."
+          : googleOAuthEnabled
+            ? "Sign up with Google or email + password (8+ chars, letter + number)."
+            : "Sign up with email + password (8+ chars, letter + number)."}
       </p>
 
       {!authReady ? (
         <div className="panel mt-8 border-warn/40 p-4 text-sm text-muted" role="status">
-          Auth is not wired yet. Add{" "}
-          <span className="font-mono text-xs text-ink">
-            NEXT_PUBLIC_SUPABASE_URL
-          </span>{" "}
-          and{" "}
-          <span className="font-mono text-xs text-ink">
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-          </span>{" "}
-          to <span className="font-mono text-xs">.env</span> — see{" "}
-          <Link href="/get-started" className="text-accent hover:underline">
-            get started
-          </Link>{" "}
-          / AUTH.md. Until then the app stays open locally.
+          Sign-in is temporarily unavailable. Email{" "}
+          <a
+            href="mailto:hello@vibemarketer.fun"
+            className="text-accent hover:underline"
+          >
+            hello@vibemarketer.fun
+          </a>{" "}
+          or try again shortly.
         </div>
       ) : null}
 
-      <form action={googleAction} className="mt-8">
-        <input type="hidden" name="next" value={next} />
-        <button
-          type="submit"
-          className="btn-ghost focus-ring flex w-full items-center justify-center gap-2 text-base"
-          disabled={!authReady || googlePending || pending}
-        >
-          <GoogleMark />
-          {googlePending ? "Redirecting…" : "Continue with Google"}
-        </button>
-      </form>
-
-      <div className="my-8 flex items-center gap-3 text-xs text-muted">
-        <span className="h-px flex-1 bg-line" />
-        or email
-        <span className="h-px flex-1 bg-line" />
-      </div>
+      {googleOAuthEnabled ? (
+        <>
+          <form action={googleAction} className="mt-8">
+            <input type="hidden" name="next" value={next} />
+            <button
+              type="submit"
+              className="btn-ghost focus-ring flex w-full items-center justify-center gap-2 text-base"
+              disabled={!authReady || googlePending || pending}
+            >
+              <GoogleMark />
+              {googlePending ? "Redirecting…" : "Continue with Google"}
+            </button>
+          </form>
+          <div className="my-8 flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-line" />
+            or email
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      ) : (
+        <div className="mt-8" />
+      )}
 
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="next" value={next} />

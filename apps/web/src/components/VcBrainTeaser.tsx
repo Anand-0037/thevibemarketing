@@ -13,7 +13,7 @@ export function VcBrainTeaser({ compact = false }: { compact?: boolean }) {
         aria-hidden
         style={{
           background:
-            "radial-gradient(ellipse 70% 80% at 20% 40%, rgba(212,255,74,0.12), transparent), radial-gradient(ellipse 50% 60% at 85% 60%, rgba(107,140,174,0.14), transparent)",
+            "radial-gradient(ellipse 70% 80% at 20% 40%, var(--glow-accent), transparent), radial-gradient(ellipse 50% 60% at 85% 60%, var(--glow-cool), transparent)",
         }}
       />
       <p className="relative section-label">Distribution gravity</p>
@@ -25,7 +25,10 @@ export function VcBrainTeaser({ compact = false }: { compact?: boolean }) {
         Same check size.{" "}
         <span className="text-accent">Different pull.</span>
       </p>
-      <div className="relative mt-8 grid grid-cols-2 gap-4 sm:gap-8">
+      <p className="relative mt-2 text-xs text-muted">
+        Illustrative example — not a live candidate.
+      </p>
+      <div className="relative mt-6 grid grid-cols-2 gap-4 sm:gap-8">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
             Cold-start founder

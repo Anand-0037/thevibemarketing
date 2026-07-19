@@ -98,8 +98,8 @@ export async function POST(
         entity_type: "founder",
         entity_id: id,
         source: "outbound_activate",
-        url: "inbound://converged",
-        payload: { channel, converged: true },
+        url: "/app/apply",
+        payload: { channel, converged: true, funnel: "inbound_screening" },
         observed_at: now,
       });
       const updated = await store.upsertFounder({

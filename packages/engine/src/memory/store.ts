@@ -170,7 +170,8 @@ export class MemoryStore {
       const code = typeof err === 'object' && err && 'code' in err ? (err as { code?: string }).code : undefined;
       if (code === 'ENOENT') {
         this.data = emptyStore();
-        await this.save();
+        // Best-effort persist — serverless FS may be read-only; keep RAM store.
+        await this.save().catch(() => undefined);
       } else {
         throw err;
       }
@@ -180,11 +181,24 @@ export class MemoryStore {
   }
 
   async save(): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.${process.pid}.${Date.now()}.tmp`;
-    const body = JSON.stringify(this.data, null, 2);
-    await writeFile(tmp, body, 'utf8');
-    await rename(tmp, this.path);
+    try {
+      await mkdir(dirname(this.path), { recursive: true });
+      const tmp = `${this.path}.${process.pid}.${Date.now()}.tmp`;
+      const body = JSON.stringify(this.data, null, 2);
+      await writeFile(tmp, body, 'utf8');
+      await rename(tmp, this.path);
+    } catch (err: unknown) {
+      const code =
+        typeof err === 'object' && err && 'code' in err
+          ? (err as { code?: string }).code
+          : undefined;
+      // Vercel/ephemeral: continue in-memory; Postgres dual-write is durable path.
+      if (code === 'EROFS' || code === 'EACCES' || code === 'ENOENT' || code === 'EPERM') {
+        console.warn(`[MemoryStore] disk persist skipped (${code ?? 'error'}) — in-memory only`);
+        return;
+      }
+      throw err;
+    }
   }
 
   private async ensure(): Promise<void> {

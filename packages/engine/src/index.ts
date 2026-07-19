@@ -60,6 +60,16 @@ export {
   type ThesisFit,
 } from "./scoring/thesis-fit";
 
+export {
+  evaluateConviction,
+  hoursInFunnel,
+  formatFunnelClock,
+  softSkillBands,
+  type ConvictionInput,
+  type ConvictionResult,
+  type TraitBand,
+} from "./scoring/conviction";
+
 export { buildMemo, decide100k } from "./memo/build";
 
 export {
@@ -75,6 +85,18 @@ export { startRun, step, stepLocal, type TraceRun } from "./trace";
 export { queryMemory, tokenizeQuery, extractFilters } from "./query";
 
 export { runVcBrainPipeline, type PipelineResult } from "./pipeline";
+
+export {
+  runDeepResearch,
+  type DeepResearchOpts,
+} from "./research/deep-research";
+export { planResearchQueries } from "./research/plan";
+export type {
+  ResearchDossier,
+  ResearchFinding,
+  ResearchHit,
+  ResearchProvider,
+} from "./research/types";
 
 export {
   runAgentLanes,

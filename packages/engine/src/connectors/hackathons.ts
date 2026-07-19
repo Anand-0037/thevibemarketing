@@ -8,8 +8,8 @@ export type SourceFetchResult = {
 };
 
 /**
- * No live hackathon directory API is configured.
- * Never invent winners. Wire Devpost/MLH feeds later.
+ * No live hackathon winners API is configured.
+ * Never invent winners. Wire Devpost/MLH later.
  */
 export function fetchHackathonWinners(): SourceFetchResult {
   return {
@@ -18,9 +18,4 @@ export function fetchHackathonWinners(): SourceFetchResult {
     error: "not configured — hackathon API unset; refusing fabricated fallbacks",
     status: 501,
   };
-}
-
-/** @deprecated Use fetchHackathonWinners — always empty. */
-export function loadHackathonWinners(): NormalizedIngestItem[] {
-  return [];
 }

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { WaitlistForm } from "@/components/WaitlistForm";
-import { postsSorted } from "@/content/posts";
+import { postHasDiagram, postsSorted } from "@/content/posts";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Blog",
   path: "/blog",
   description:
-    "Notes on autonomous marketing fleets, distribution gravity, and agentic GTM for SaaS founders.",
+    "Notes on autonomous marketing fleets, distribution gravity, architecture diagrams, and agentic GTM for SaaS founders.",
 });
 
 export default function BlogPage() {
@@ -23,8 +23,8 @@ export default function BlogPage() {
             Blog
           </h1>
           <p className="mt-3 max-w-xl text-muted">
-            Short notes from building thevibemarketing — marketing fleet + VC
-            Brain. Dogfooded by the same engine.
+            Architecture notes, Mermaid system maps, and build-in-public writing
+            from the marketing fleet + VC Brain — dogfooded by the same engine.
           </p>
         </div>
         <Link
@@ -42,9 +42,16 @@ export default function BlogPage() {
               href={`/blog/${p.slug}`}
               className="group block border-b border-line pb-8 focus-ring"
             >
-              <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
-                {p.date}
-                {p.tag ? ` · ${p.tag}` : ""}
+              <p className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted">
+                <span>
+                  {p.date}
+                  {p.tag ? ` · ${p.tag}` : ""}
+                </span>
+                {postHasDiagram(p) ? (
+                  <span className="border border-accent/40 px-1.5 py-0.5 text-accent">
+                    diagrams
+                  </span>
+                ) : null}
               </p>
               <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight group-hover:text-accent">
                 {p.title}

@@ -55,10 +55,10 @@ export function CommandPalette() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                url: "https://vibemarketer.fun",
-                name: "thevibemarketing",
+                url: "https://www.vibemarketer.fun",
+                name: "vibemarketer",
                 oneliner:
-                  "Autonomous AI agent fleet for SaaS marketing — Cursor for marketing. Built by Anand Vashishtha (0xanand.tech).",
+                  "Cursor for marketing — brand brief, campaigns, and approval-gated drafts. Built by Anand Vashishtha (0xanand.tech).",
                 icp: "Solo SaaS founders and small technical teams who ship fast but lack distribution — especially AI/Web3 builders",
                 tone: "direct/technical, founder-native, no agency fluff — Anand's builder voice",
                 pillars: [

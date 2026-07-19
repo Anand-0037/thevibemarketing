@@ -238,6 +238,20 @@ export type MemoBuildInput = {
   thesis?: Thesis | null;
   claims?: Claim[];
   extra_gaps?: string[];
+  /** Cite-bound deep research dossier (optional). */
+  research?: {
+    findings: Array<{
+      claim: string;
+      topic: string;
+      support: string;
+      confidence: number;
+      citations: Array<{ url: string; snippet: string }>;
+    }>;
+    open_questions: string[];
+    synthesis: string;
+    partial: boolean;
+    provider_status: Record<string, string>;
+  } | null;
 };
 
 export type QueryResult = {

@@ -4,6 +4,8 @@ import { runVcBrainPipeline } from "@/lib/pipeline";
 import { getStore } from "@/lib/store";
 
 export const runtime = "nodejs";
+/** Deep research + agent lanes need headroom on Vercel. */
+export const maxDuration = 120;
 
 export async function POST(
   _req: Request,

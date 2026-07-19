@@ -6,7 +6,7 @@
 
 export const DOGFOOD_OPERATOR = {
   name: "Anand Vashishtha",
-  email: "anandcollege07@gmail.com",
+  email: "hello@vibemarketer.fun",
   location: "Ghaziabad, Uttar Pradesh, India",
   x_url: "https://x.com/AnandVashisht15",
   x_handle: "AnandVashisht15",
@@ -36,21 +36,21 @@ export const DOGFOOD_OPERATOR = {
   /** Product we dogfood this fleet on. */
   product: {
     id: "f_anand_vashishtha",
-    company: "thevibemarketing",
+    company: "vibemarketer",
     domain: "vibemarketer.fun",
-    url: "https://vibemarketer.fun",
+    url: "https://www.vibemarketer.fun",
     repo: "https://github.com/Anand-0037/thevibemarketing",
     oneliner:
-      "Autonomous AI Agent Fleet for your Marketing Department. Operates 24/365.",
+      "Paste your product URL. Get a brand brief, campaign plan, and drafts you approve.",
     sector: "AI marketing / developer tools",
     stage: "pre-seed",
   },
   /** Pre-cached brand memory (Firecrawl markdown of portfolio + product thesis). */
   brand: {
     url: "https://vibemarketer.fun",
-    name: "thevibemarketing",
+    name: "vibemarketer",
     oneliner:
-      "Autonomous AI agent fleet for SaaS marketing — Cursor for marketing. Built by Anand Vashishtha (0xanand.tech).",
+      "Cursor for marketing — brand brief, campaigns, and approval-gated drafts. Built by Anand Vashishtha (0xanand.tech).",
     icp: "Solo SaaS founders and small technical teams who ship fast but lack distribution — especially AI/Web3 builders",
     tone: "direct/technical, founder-native, no agency fluff — Anand's builder voice",
     pillars: [

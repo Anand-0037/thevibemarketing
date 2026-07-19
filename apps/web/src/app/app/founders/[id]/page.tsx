@@ -9,6 +9,17 @@ import { ScoreBar } from "@/components/ScoreBar";
 import { ScreeningTheater } from "@/components/ScreeningTheater";
 import { TraceDrawer } from "@/components/TraceDrawer";
 import { TrustBadge } from "@/components/TrustBadge";
+import { emptyGravity } from "@/lib/normalize";
+
+type TraitBand = {
+  trait: string;
+  proxy: string;
+  mid: number;
+  low: number;
+  high: number;
+  confidence: number;
+  note: string;
+};
 
 type Detail = {
   founder: Founder;
@@ -16,6 +27,15 @@ type Detail = {
   signals: Signal[];
   screening?: Screening | null;
   memo?: { id: string; decision: string } | null;
+  funnel_clock?: string;
+  within_24h?: boolean;
+  conviction?: {
+    crossed: boolean;
+    score: number;
+    reasons: string[];
+  };
+  trait_bands?: TraitBand[];
+  thesis_fit?: string;
 };
 
 export default function FounderDetailPage() {
@@ -23,14 +43,37 @@ export default function FounderDetailPage() {
   const id = params.id;
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [screenBusy, setScreenBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const [enrichBusy, setEnrichBusy] = useState(false);
   const [theaterDone, setTheaterDone] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [activateNote, setActivateNote] = useState<string | null>(null);
   const [mailto, setMailto] = useState<string | null>(null);
   const [enrichNote, setEnrichNote] = useState<string | null>(null);
+  const [claimNote, setClaimNote] = useState<string | null>(null);
+  const [researchBusy, setResearchBusy] = useState(false);
+  const [researchNote, setResearchNote] = useState<string | null>(null);
+  const [researchSummary, setResearchSummary] = useState<{
+    findings: number;
+    questions: number;
+    partial: boolean;
+    synthesis: string;
+    providers: string;
+  } | null>(null);
+  const [traceOpenSignal, setTraceOpenSignal] = useState(0);
+  const [traceFocus, setTraceFocus] = useState<string | null>(null);
+  const [justConverged, setJustConverged] = useState(false);
   const autoScreened = useRef(false);
+
+  function inspectTrust() {
+    setTraceFocus("trust_claims");
+    setTraceOpenSignal((n) => n + 1);
+    document.getElementById("agent-trace")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
 
   const load = useCallback(async () => {
     setError(null);
@@ -58,7 +101,7 @@ export default function FounderDetailPage() {
   }, [id]);
 
   const runScreen = useCallback(async () => {
-    setBusy(true);
+    setScreenBusy(true);
     setTheaterDone(false);
     setError(null);
     try {
@@ -71,7 +114,68 @@ export default function FounderDetailPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Screen failed");
     } finally {
-      setBusy(false);
+      setScreenBusy(false);
+    }
+  }, [id, load]);
+
+  const runDeepDiligence = useCallback(async () => {
+    setResearchBusy(true);
+    setResearchNote(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/research/${id}`, { method: "POST" });
+      const body = (await res.json()) as {
+        error?: string;
+        run_id?: string;
+        next?: string;
+        dossier?: {
+          findings?: unknown[];
+          open_questions?: string[];
+          partial?: boolean;
+          synthesis?: string;
+          provider_status?: Record<string, string>;
+        };
+      };
+      if (!res.ok) throw new Error(body.error || "Deep research failed");
+      if (body.run_id) setRunId(body.run_id);
+      const findings = body.dossier?.findings?.length ?? 0;
+      const questions = body.dossier?.open_questions?.length ?? 0;
+      setResearchSummary({
+        findings,
+        questions,
+        partial: Boolean(body.dossier?.partial),
+        synthesis: body.dossier?.synthesis ?? "skipped",
+        providers: Object.entries(body.dossier?.provider_status ?? {})
+          .map(([k, v]) => `${k}=${v}`)
+          .join(" · "),
+      });
+      setResearchNote(
+        body.next ??
+          `Deep diligence complete — ${findings} findings, ${questions} open questions. Run 3-axis screen for $100K.`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Deep research failed");
+    } finally {
+      setResearchBusy(false);
+    }
+  }, [id, load]);
+
+  const attachProbeClaim = useCallback(async () => {
+    setClaimNote(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/founders/${id}/claims`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ probe: true }),
+      });
+      const body = (await res.json()) as { error?: string; note?: string };
+      if (!res.ok) throw new Error(body.error || "Claim failed");
+      setClaimNote(body.note ?? "Probe claim attached");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Claim failed");
     }
   }, [id, load]);
 
@@ -129,8 +233,9 @@ export default function FounderDetailPage() {
   }, [runScreen]);
 
   async function activate(action: "draft" | "sent" | "applied") {
-    setBusy(true);
+    setActionBusy(true);
     setActivateNote(null);
+    setError(null);
     try {
       const res = await fetch(`/api/activate/${id}`, {
         method: "POST",
@@ -145,13 +250,16 @@ export default function FounderDetailPage() {
       if (!res.ok) throw new Error(body.error || "Activate failed");
       setActivateNote(body.note ?? "OK");
       if (body.mailto) setMailto(body.mailto);
+      if (action === "applied") setJustConverged(true);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Activate failed");
     } finally {
-      setBusy(false);
+      setActionBusy(false);
     }
   }
+
+  const anyBusy = screenBusy || actionBusy || enrichBusy || researchBusy;
 
   if (error && !data) {
     return (
@@ -169,7 +277,7 @@ export default function FounderDetailPage() {
   }
 
   const { founder, product, signals, screening } = data;
-  const g = founder.gravity;
+  const g = founder.gravity?.components ? founder.gravity : emptyGravity();
   const history = founder.score_history ?? [];
   const activation = founder.activation;
   /** Brief: Identify (radar) → Activate (outreach) → Converge (same Screening). */
@@ -200,6 +308,40 @@ export default function FounderDetailPage() {
             <h1 className="font-display text-3xl font-bold tracking-tight">
               {founder.name}
             </h1>
+            {data.funnel_clock ? (
+              <span
+                className={`font-mono text-[10px] uppercase tracking-wider ${
+                  data.within_24h ? "text-ok" : "text-warn"
+                }`}
+                title="24h decision-support SLA — time since first Memory write"
+              >
+                {data.funnel_clock}
+              </span>
+            ) : null}
+            {data.conviction?.crossed ? (
+              <span className="border border-accent/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
+                Conviction
+              </span>
+            ) : null}
+            {data.thesis_fit ? (
+              <span className="font-mono text-[10px] uppercase text-muted">
+                thesis {data.thesis_fit}
+              </span>
+            ) : null}
+            {data.memo?.decision ? (
+              <span
+                className={`border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+                  data.memo.decision === "yes"
+                    ? "border-ok/50 text-ok"
+                    : data.memo.decision === "no"
+                      ? "border-danger/50 text-danger"
+                      : "border-warn/50 text-warn"
+                }`}
+                title="Decision-support lean — not an automated wire"
+              >
+                $100K {data.memo.decision}
+              </span>
+            ) : null}
           </div>
           <p className="mt-2 max-w-xl text-sm text-muted">
             {product?.name ? `${product.name} — ` : ""}
@@ -211,42 +353,113 @@ export default function FounderDetailPage() {
             type="button"
             className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
             onClick={() => void runScreen()}
-            disabled={busy || enrichBusy}
+            disabled={anyBusy}
           >
-            {busy ? "Screening…" : "Run 3-axis screen"}
+            {screenBusy ? "Screening…" : "Run 3-axis screen"}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => void runDeepDiligence()}
+            disabled={anyBusy}
+            title="Orchestrated deep diligence: Tavily + Firecrawl + optional E2B → cite-bound synthesis"
+          >
+            {researchBusy ? "Researching…" : "Deep diligence"}
           </button>
           <button
             type="button"
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
             onClick={() => void runEnrich()}
-            disabled={busy || enrichBusy}
+            disabled={anyBusy}
             title="Fan out code/web/claim/HN/memory lanes using live API endpoints"
           >
             {enrichBusy ? "Enriching…" : "Run agent enrich"}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => void attachProbeClaim()}
+            disabled={anyBusy}
+            title="Labeled overstated claim + public evidence URL → Trust contradiction + url_diligence"
+          >
+            Diligence probe claim
           </button>
           <Link
             href={`/app/founders/${id}/memo`}
             prefetch
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
           >
-            Open memo
+            {data.memo?.decision
+              ? `Open $100K ${data.memo.decision} memo`
+              : "Open memo"}
           </Link>
         </div>
       </div>
 
-      <ScreeningTheater active={busy} complete={theaterDone && !busy} />
+      <ScreeningTheater
+        active={screenBusy}
+        complete={theaterDone && !screenBusy}
+        founderId={id}
+      />
+      {claimNote ? (
+        <p className="mt-3 font-mono text-xs text-accent" role="status">
+          {claimNote}
+        </p>
+      ) : null}
 
-      {theaterDone && !busy ? (
+      {theaterDone && !screenBusy ? (
         <div className="panel mt-4 flex flex-wrap items-center justify-between gap-3 border-accent/40 p-4">
-          <p className="text-sm text-muted">
-            Screen complete. Open the evidence memo for the $100K decision.
-          </p>
+          <div>
+            <p className="text-sm text-ink">
+              Screen complete
+              {data.memo?.decision ? (
+                <>
+                  {" · "}
+                  <span className="font-mono uppercase text-accent">
+                    $100K {data.memo.decision}
+                  </span>
+                </>
+              ) : null}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Decision-support for a human investor — not an automated wire.
+            </p>
+          </div>
           <Link
             href={`/app/founders/${id}/memo`}
             className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
           >
-            Open $100K memo →
+            {data.memo?.decision
+              ? `Open $100K ${data.memo.decision} memo →`
+              : "Open $100K memo →"}
           </Link>
+        </div>
+      ) : null}
+
+      {researchNote || researchSummary ? (
+        <div className="panel mt-4 border-accent/30 p-4" role="status">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-accent">
+            Deep diligence dossier
+          </p>
+          {researchSummary ? (
+            <p className="mt-2 text-sm text-ink">
+              {researchSummary.findings} findings · {researchSummary.questions}{" "}
+              open questions · synthesis {researchSummary.synthesis}
+              {researchSummary.partial ? " · PARTIAL" : ""}
+            </p>
+          ) : null}
+          {researchSummary?.providers ? (
+            <p className="mt-1 font-mono text-[10px] text-muted">
+              {researchSummary.providers}
+            </p>
+          ) : null}
+          {researchNote ? (
+            <p className="mt-2 text-xs text-muted">{researchNote}</p>
+          ) : null}
+          <p className="mt-2 text-xs text-muted">
+            Full screen also runs this orchestration automatically before the
+            $100K decision. Cite-bound only — no invented TAM or traction.
+          </p>
         </div>
       ) : null}
 
@@ -323,26 +536,26 @@ export default function FounderDetailPage() {
           <button
             type="button"
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-            disabled={busy}
+            disabled={anyBusy}
             onClick={() => void activate("draft")}
           >
-            {busy ? "Working…" : "Draft outreach"}
+            {actionBusy ? "Working…" : "Draft outreach"}
           </button>
           <button
             type="button"
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-            disabled={busy}
+            disabled={anyBusy}
             onClick={() => void activate("sent")}
           >
-            {busy ? "Working…" : "Mark sent"}
+            {actionBusy ? "Working…" : "Mark sent"}
           </button>
           <button
             type="button"
             className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
-            disabled={busy}
+            disabled={anyBusy}
             onClick={() => void activate("applied")}
           >
-            {busy ? "Working…" : "Mark applied → converge"}
+            {actionBusy ? "Working…" : "Mark applied → converge"}
           </button>
           {mailto ? (
             <a href={mailto} className="btn-ghost focus-ring !px-3 !py-1.5 text-sm">
@@ -352,6 +565,22 @@ export default function FounderDetailPage() {
         </div>
         {activateNote ? (
           <p className="mt-3 font-mono text-xs text-accent">{activateNote}</p>
+        ) : null}
+        {justConverged || converged ? (
+          <div className="panel mt-4 flex flex-wrap items-center justify-between gap-3 border-ok/40 bg-ok/5 p-3">
+            <p className="text-sm text-muted">
+              Converged into the same Screening funnel as inbound. Run the
+              3-axis screen next.
+            </p>
+            <button
+              type="button"
+              className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+              disabled={anyBusy}
+              onClick={() => void runScreen()}
+            >
+              {screenBusy ? "Screening…" : "Run 3-axis screen →"}
+            </button>
+          </div>
         ) : null}
         {activation?.body ? (
           <pre className="mt-4 max-h-40 overflow-auto whitespace-pre-wrap border border-line p-3 font-mono text-xs text-muted">
@@ -390,18 +619,23 @@ export default function FounderDetailPage() {
             </div>
           ) : history.length === 1 ? (
             <p className="mt-2 text-xs text-muted">
-              One point recorded — trend needs 2+ history points (load samples
-              or re-score after ingest).
+              One point recorded — trend needs 2+ history points (re-score after
+              a later ingest).
             </p>
           ) : (
             <p className="mt-2 text-xs text-muted">
-              No score history yet — persistent Founder Score still holds; trend
-              appears after re-score / seed.
+              No score history yet — the current Founder Score still holds; trend
+              appears after re-score.
             </p>
           )}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <TrustBadge confidence={founder.score_confidence} />
+          {founder.score_confidence < 0.75 || g.abstain ? (
+            <span className="border border-accent/40 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase text-accent">
+              cold-start mode · track record weight redistributed
+            </span>
+          ) : null}
           {g.abstain ? (
             <span className="border border-warn/40 px-2 py-0.5 font-mono text-[10px] uppercase text-warn">
               abstain · {g.abstain_reason ?? "thin signal"}
@@ -424,11 +658,56 @@ export default function FounderDetailPage() {
           ).map(([k, v]) => (
             <div key={k} className="border border-line p-2">
               <p className="font-mono text-[10px] uppercase text-muted">{k}</p>
-              <p className="font-mono text-lg tabular-nums">{v.toFixed(0)}</p>
+              <p className="font-mono text-lg tabular-nums">
+                {Number.isFinite(v) ? v.toFixed(0) : "—"}
+              </p>
             </div>
           ))}
         </div>
       </section>
+
+      {data.trait_bands && data.trait_bands.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="font-display text-lg font-semibold">
+            Soft-skill intervals · research prototype
+          </h2>
+          <p className="mt-1 max-w-2xl text-xs text-muted">
+            Brief Area of Research #1 — prediction intervals around soft proxies
+            from public footprints. Not validated predictors; bands widen when
+            sources are sparse (data quality vs volume).
+          </p>
+          <ul className="mt-4 space-y-3">
+            {data.trait_bands.map((t) => (
+              <li key={t.trait} className="panel p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium">{t.trait}</p>
+                  <p className="font-mono text-xs tabular-nums text-muted">
+                    {t.low.toFixed(0)}–{t.high.toFixed(0)} · mid{" "}
+                    {t.mid.toFixed(0)} · conf {(t.confidence * 100).toFixed(0)}%
+                  </p>
+                </div>
+                <div className="relative mt-2 h-2 overflow-hidden border border-line bg-bg">
+                  <div
+                    className="absolute inset-y-0 bg-cool/30"
+                    style={{
+                      left: `${t.low}%`,
+                      width: `${Math.max(2, t.high - t.low)}%`,
+                    }}
+                  />
+                  <div
+                    className="absolute inset-y-0 w-0.5 bg-accent"
+                    style={{ left: `${t.mid}%` }}
+                  />
+                </div>
+                <p className="mt-2 font-mono text-[10px] uppercase text-muted">
+                  via {t.proxy}
+                </p>
+                <p className="mt-1 text-xs text-muted">{t.note}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mt-8">
         <h2 className="font-display text-lg font-semibold">
@@ -503,35 +782,65 @@ export default function FounderDetailPage() {
         <h2 className="font-display text-lg font-semibold">
           Claims · per-claim Trust Score
         </h2>
-        <ul className="mt-3 space-y-2">
-          {[...founder.claims, ...(product?.traction_claims ?? [])].map((c, i) => (
-            <li
-              key={`${c.text}-${i}`}
-              className={`panel flex flex-wrap items-start justify-between gap-2 p-3 ${
-                c.contradiction ? "claim-flash border-danger/50" : ""
-              }`}
-            >
-              <div className="min-w-0">
-                <p className="text-sm">{c.text}</p>
-                <p className="mt-1 break-all font-mono text-[10px] uppercase text-muted">
-                  {c.category}
-                  {c.evidence_url ? ` · ${c.evidence_url}` : " · no evidence url"}
-                </p>
-                {c.contradiction_note ? (
-                  <p className="mt-1 text-xs text-danger">{c.contradiction_note}</p>
-                ) : null}
-              </div>
-              <TrustBadge
-                confidence={c.confidence}
-                contradiction={c.contradiction}
-              />
-            </li>
-          ))}
-        </ul>
+        {(founder.claims ?? []).length === 0 &&
+        (product?.traction_claims ?? []).length === 0 ? (
+          <p className="mt-3 text-sm text-muted">
+            No claims yet. Use{" "}
+            <span className="text-ink">Diligence probe claim</span> to attach a
+            labeled overstated traction claim, then run the 3-axis screen — Trust
+            will flag the contradiction.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {[...(founder.claims ?? []), ...(product?.traction_claims ?? [])].map(
+              (c, i) => (
+                <li
+                  key={`${c.text}-${i}`}
+                  className={`panel flex flex-wrap items-start justify-between gap-2 p-3 ${
+                    c.contradiction ? "claim-flash border-danger/50" : ""
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm">{c.text}</p>
+                    <p className="mt-1 font-mono text-[10px] uppercase text-muted">
+                      {c.category}
+                      {!c.evidence_url ? " · no evidence url" : null}
+                    </p>
+                    {c.evidence_url ? (
+                      <a
+                        href={c.evidence_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 block break-all text-xs text-accent hover:underline"
+                      >
+                        {c.evidence_url}
+                      </a>
+                    ) : null}
+                    {c.contradiction_note ? (
+                      <p className="mt-1 text-xs text-danger">
+                        {c.contradiction_note}
+                      </p>
+                    ) : null}
+                  </div>
+                  <TrustBadge
+                    confidence={c.confidence ?? 0}
+                    contradiction={c.contradiction}
+                    onInspect={runId ? inspectTrust : undefined}
+                  />
+                </li>
+              ),
+            )}
+          </ul>
+        )}
       </section>
 
-      <div className="mt-8">
-        <TraceDrawer runId={runId} autoOpen={theaterDone} />
+      <div className="mt-8" id="agent-trace">
+        <TraceDrawer
+          runId={runId}
+          autoOpen={theaterDone}
+          openSignal={traceOpenSignal}
+          focusStep={traceFocus}
+        />
       </div>
     </div>
   );

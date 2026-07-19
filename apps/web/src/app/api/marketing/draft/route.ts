@@ -163,7 +163,7 @@ export async function POST() {
       name: "thevibemarketing",
       oneliner:
         "Autonomous AI agent fleet for your marketing department — Cursor for marketing.",
-      icp: "Solo SaaS founders and small technical teams",
+      icp: "SaaS founders, early startups, and MSMEs who need on-brand social",
       tone: "direct/technical",
       pillars: [
         "distribution",

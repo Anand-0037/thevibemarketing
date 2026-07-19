@@ -1,107 +1,117 @@
 # vibemarketer
 
-**Official site:** [https://vibemarketer.fun](https://vibemarketer.fun)  
-**Code:** [github.com/Anand-0037/thevibemarketing](https://github.com/Anand-0037/thevibemarketing)
+**Official site:** [www.vibemarketer.fun](https://www.vibemarketer.fun)  
+**Repo:** [Anand-0037/thevibemarketing](https://github.com/Anand-0037/thevibemarketing)  
+**Judge pack:** [`../hack/project files/JUDGES.md`](../hack/project%20files/JUDGES.md) · **Status:** [`../hack/STATUS.md`](../hack/STATUS.md)
 
-Cursor for marketing — autonomous AI agents for SaaS distribution.  
-**VC Brain** is the sourcing feature: Identify → Diligence → $100K evidence memo.
+> Cursor for marketing — an autonomous AI agent fleet that runs a SaaS founder’s marketing department 24/365.  
+> **VC Brain** is the same engine’s sourcing head: find, screen, and diligence founders by **distribution gravity**, then recommend a **$100K** check.
 
 ---
 
-## Product
+## Hack-Nation · Challenge 02 — The VC Brain
 
-| Surface | What it does |
-|---------|----------------|
-| Marketing fleet | Brand memory → Studio drafts → HITL queue → publish only after provider confirm |
-| VC Brain | Live Identify, distribution gravity, 3-axis screen, Trust/Diligence, memos |
+| | |
+|---|---|
+| Track | **The VC Brain** (Maschmeyer Group) — only track submitted |
+| Team ID | `026f67c5-25af-4105-ae6e-177dd10bc0bb` |
+| Product frame | Marketing fleet = the company · VC Brain = first-class feature (`/vc-brain`, `/app/*`) |
+| Unfair angle | **Distribution gravity** — earned attention vs pedigree; axes never averaged; Trust/Diligence kills weak claims |
 
-We never invent people or companies. Identify pulls **live** GitHub / HN / arXiv only. Unavailable sources return zero rows (`not configured`). Discovered authors are **candidates**, not verified founders.
+**One sentence for judges:** Autonomous marketing agents for SaaS, with a VC Brain that ranks cold-start founders by public distribution signal and writes evidence-backed $100K memos.
+
+---
+
+## Problem
+
+Shipping got cheap. **Distribution did not.**
+
+Founders who can build still stall on Reddit, X, LinkedIn, SEO/AEO, and brand memory that resets every chat. Investors miss builders whose public footprint already shows pull — until a warm intro surfaces them weeks later.
+
+Both are the same systems problem: **ingest public signal → persistent memory → evidence-backed reasoning → gated action.**
+
+---
+
+## Solution
+
+```
+                 vibemarketer.fun
+        ┌─────────────────────────────────────┐
+        │  Marketing fleet (main product)       │
+        │  brand memory → draft → HITL → publish│
+        └──────────────────┬────────────────────┘
+                           │  @vibe/engine
+        ┌──────────────────▼────────────────────┐
+        │  VC Brain (Challenge 02)                │
+        │  Identify → Activate → Converge         │
+        │  → Screen → Diligence → $100K Decision  │
+        └─────────────────────────────────────────┘
+```
+
+1. **Marketing head** — autonomous loops across founder channels with an autonomy dial (L1 HITL → L3 gated). Brand memory does not reset.
+2. **Sourcing head (VC Brain)** — outbound Identify across live GitHub, HN, arXiv; Activate cold outreach; Converge into Screening; score on **three axes never averaged**; Diligence via per-claim Trust; Decision as an evidence memo.
+
+We never invent people or companies. Unavailable sources return **zero rows**. Discovered authors are **candidates** until claimed / applied / verified.
 
 ---
 
 ## Build vs borrow
 
-| Borrow | Build |
-|--------|--------|
-| Composio, Firecrawl, E2B, OpenAI, Supabase, Supermemory | Gravity scorer, 3-axis screen, Diligence/Trust, Founder Score, HITL, workspace isolation |
-| MIT marketing skill playbooks | Agent lanes, traces, product UX |
+| Borrow | Build (moat) |
+|--------|----------------|
+| Composio (OAuth), Firecrawl, E2B, OpenAI, Supabase, Supermemory | Orchestration spine, distribution gravity, 3-axis screen, Diligence/Trust, Founder Score ledger, HITL, workspace isolation |
+| MIT marketing skill playbooks | Agent lanes, traces, investor UX |
 
 ---
 
-## Stack
+## Architecture
 
-```
-apps/web          Next.js (UI + API)
-packages/engine   @vibe/engine
-supabase/         Auth + Memory migrations (RLS)
-```
+| Layer | Role |
+|-------|------|
+| `apps/web` | Next.js UI + **API routes (the backend)** |
+| `packages/engine` | `@vibe/engine` — scoring, connectors, memory, memos |
+| Supabase | Auth (JWT) + Postgres Memory ledgers (RLS, per-owner workspaces) |
 
-Flow: **authenticated user → owned workspace → live ingest → score → Diligence → memo → Supabase**
+There is **no separate backend service to deploy**. Vercel hosts the Next app; API routes run as serverless functions. Supabase is Auth + database.
+
+**Runtime contract**
+
+- Authenticated user → owned workspace → live ingest → score → Diligence → memo  
+- Dual-write to Supabase when `USE_POSTGRES_DUAL=1`  
+- Approve → `queued` until a provider confirms a post ID/URL (stubs never fake `published`)
 
 ---
 
-## Local
+## Demo path (judges / video)
+
+1. Sign up → `/app/radar` (empty is correct)  
+2. **Identify · refresh** — live GitHub / HN / arXiv candidates  
+3. `/app/compare` — top pair by distribution gravity  
+4. Open a founder → **Screen** → Diligence / Trust → **$100K memo** + agent trace  
+5. Optional: Activate → Converge · Studio / HITL · NL query  
+
+---
+
+## Local development
 
 ```bash
 pnpm install
-cp .env.example .env
-# set keys; AUTH_BYPASS=0; USE_POSTGRES_DUAL=1
+cp .env.example .env   # fill keys — never commit .env
 pnpm test:engine
 pnpm --filter web dev
 ```
 
-Production site URL (deploy):
-
-```text
-NEXT_PUBLIC_SITE_URL=https://vibemarketer.fun
-```
-
-Local only:
-
-```text
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-
-Never commit `.env`. Apply `supabase/migrations/` in the Dashboard before dual-write.
-
 ---
 
-## Deploy → vibemarketer.fun
+## Honest labels
 
-Ops runbook (lives outside this repo root):  
-[`../hack/project files/DEPLOY.md`](../hack/project%20files/DEPLOY.md)
-
-1. Push **this directory** as the GitHub repo root  
-2. Netlify (or Vercel) · base = repo root · use `netlify.toml`  
-3. Env: all keys + `NEXT_PUBLIC_SITE_URL=https://vibemarketer.fun` + `AUTH_BYPASS=0`  
-4. Supabase Auth: Site URL + redirect `https://vibemarketer.fun/auth/callback`  
-5. Attach custom domain **vibemarketer.fun**  
-6. Smoke: empty signup → Identify → only live candidates → restart persists your workspace  
-
----
-
-## Ship checklist
-
-| Gate | Status |
-|------|--------|
-| No synthetic founders / curated fake PH-accel-hack people | Done |
-| No marketing seed posts in production path | Done |
-| Private `/api/*` requires session | Done |
-| Per-user workspace `owner_id` | Done |
-| Approve → `queued` (not fake `published`) | Done |
-| Domain identity `vibemarketer.fun` in code | Done |
-| SQL migrations applied in Supabase | **You confirm** |
-| Full app pushed to GitHub | **You confirm** |
-| Staging smoke + DNS for vibemarketer.fun | **You do** |
-
-### Known limits (OK to ship with eyes open)
-
-- Decks still on ephemeral disk (Storage cutover next)  
-- Marketing brand/posts not fully multi-tenant Postgres yet  
-- Memos/traces dual-write incomplete (schema exists)  
+- Live Identify only (GitHub / HN / arXiv). PH / accelerator / hackathon connectors are **not configured** until real APIs exist.  
+- Composio publish stays HITL / queued until OAuth + provider confirm.  
+- OpenAI outage → deterministic scoring/memo math still works.  
+- Known limits: decks on ephemeral disk; marketing posts not fully multi-tenant Postgres yet; memo/trace dual-write partial.
 
 ---
 
 ## License
 
-Proprietary for now · operator contact via site footer / `NEXT_PUBLIC_CONTACT_EMAIL`.
+Proprietary for now · contact via site footer / `NEXT_PUBLIC_CONTACT_EMAIL`.

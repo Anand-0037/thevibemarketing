@@ -59,6 +59,23 @@ export type PublishLog = {
   note: string;
 };
 
+export type CampaignDay = {
+  day: number;
+  channel: Platform | "email" | "blog";
+  goal: string;
+  draft_hint: string;
+};
+
+/** Seven-day campaign brief — planning artifact; drafts still go through HITL. */
+export type CampaignBrief = {
+  id: string;
+  title: string;
+  created_at: string;
+  audience: string;
+  days: CampaignDay[];
+  note: string;
+};
+
 export type MarketingData = {
   brand: BrandContext | null;
   posts: Post[];
@@ -71,6 +88,7 @@ export type MarketingData = {
    */
   autonomy: AutonomyLevel;
   publish_log: PublishLog[];
+  campaign?: CampaignBrief | null;
 };
 
 function emptyData(): MarketingData {
@@ -80,6 +98,7 @@ function emptyData(): MarketingData {
     loops: [],
     autonomy: "L1",
     publish_log: [],
+    campaign: null,
   };
 }
 
@@ -118,6 +137,7 @@ export class MarketingStore {
         loops: parsed.loops ?? [],
         autonomy,
         publish_log: parsed.publish_log ?? [],
+        campaign: parsed.campaign ?? null,
       };
     } catch (err: unknown) {
       const code =
@@ -321,6 +341,18 @@ export class MarketingStore {
     await this.save();
     return level;
   }
+
+  async getCampaign(): Promise<CampaignBrief | null> {
+    await this.ensure();
+    return this.data.campaign ?? null;
+  }
+
+  async setCampaign(campaign: CampaignBrief): Promise<CampaignBrief> {
+    await this.ensure();
+    this.data.campaign = campaign;
+    await this.save();
+    return campaign;
+  }
 }
 
 let singleton: MarketingStore | null = null;
@@ -371,22 +403,45 @@ export function heuristicBrandFromUrl(
     };
   }
 
+  const text = `${host} ${markdown ?? ""}`;
   const tech =
-    /api|sdk|developer|infra|agent|openai|github/i.test(markdown ?? "") ||
+    /api|sdk|developer|infra|agent|openai|github|saas|devtools/i.test(text) ||
     /dev|api|ai|ml/.test(host);
+  const localMsme =
+    /salon|clinic|restaurant|cafe|bakery|plumber|dentist|lawyer|real.?estate|gym|boutique|shop|store|hotel|spa|garage|contractor|accountant|agency|studio|local|msme|smb|small.?business|google.?business/i.test(
+      text,
+    );
+
+  if (localMsme && !tech) {
+    return {
+      url,
+      name,
+      oneliner: excerpt
+        ? `${name} — ${excerpt.slice(0, 120)}`
+        : `${name} — local / MSME brand that needs steady social presence.`,
+      icp: "Local MSMEs, service businesses, and small teams who need on-brand posts without an agency",
+      tone: "clear/friendly, neighborhood-credible, no jargon",
+      pillars: [
+        "local trust & proof",
+        "offers & updates",
+        "community / reviews",
+        "consistent cadence",
+      ],
+    };
+  }
 
   return {
     url,
     name,
     oneliner: excerpt
       ? `${name} — ${excerpt.slice(0, 120)}`
-      : `${name} — SaaS product for builders who need distribution.`,
+      : `${name} — product for founders and small teams who need distribution.`,
     icp: tech
-      ? "solo SaaS founders + technical GTM leads"
-      : "early-stage B2B founders seeking distribution",
+      ? "Solo SaaS founders, early startups, and technical GTM leads"
+      : "SaaS founders, MSMEs, and small brands seeking owned distribution",
     tone: tech ? "direct/technical" : "clear/founder-led",
     pillars: tech
       ? ["product-led growth", "community", "content"]
-      : ["thought leadership", "pipeline", "community"],
+      : ["thought leadership", "pipeline", "community", "local trust"],
   };
 }

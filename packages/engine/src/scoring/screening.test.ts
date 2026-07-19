@@ -186,10 +186,10 @@ assert(
   `expected bear market stance, got label="${bearScreen.market_axis.label}" stance=${bearScreen.market_axis.stance}`,
 );
 
-// --- $100K: one Trust contradiction → NO (Sam Rivera money shot) ---
-const samScreen = {
-  founder_id: "f_sam_rivera",
-  product_id: "p_metricly",
+// --- $100K: one Trust contradiction → NO (Diligence / Trust kill) ---
+const trustKillScreen = {
+  founder_id: "f_trust_probe",
+  product_id: "p_trust_probe",
   founder_axis: {
     score: 40,
     label: "weak",
@@ -215,7 +215,7 @@ const samScreen = {
   scored_at: new Date().toISOString(),
 } satisfies Screening;
 
-const samNo = decide100k(samScreen, [
+const trustKillNo = decide100k(trustKillScreen, [
   {
     text: "10,000 users",
     category: "traction",
@@ -230,8 +230,11 @@ const samNo = decide100k(samScreen, [
     contradiction: false,
   },
 ]);
-assert(samNo.decision === "no", `Sam must be $100K NO, got ${samNo.decision}`);
-assert(/contradiction/i.test(samNo.rationale), "NO rationale cites contradiction");
+assert(
+  trustKillNo.decision === "no",
+  `Trust contradiction must be $100K NO, got ${trustKillNo.decision}`,
+);
+assert(/contradiction/i.test(trustKillNo.rationale), "NO rationale cites contradiction");
 
 // Thesis risk must change outcomes (not cosmetic)
 const cleanClaims = [
@@ -243,10 +246,10 @@ const cleanClaims = [
   },
 ];
 const strongScreen = {
-  ...samScreen,
-  founder_axis: { ...samScreen.founder_axis, score: 72, label: "strong" },
-  market_axis: { ...samScreen.market_axis, score: 70, label: "bullish" },
-  idea_axis: { ...samScreen.idea_axis, score: 68, label: "promising" },
+  ...trustKillScreen,
+  founder_axis: { ...trustKillScreen.founder_axis, score: 72, label: "strong" },
+  market_axis: { ...trustKillScreen.market_axis, score: 70, label: "bullish" },
+  idea_axis: { ...trustKillScreen.idea_axis, score: 68, label: "promising" },
 } satisfies Screening;
 
 const yesModerate = decide100k(strongScreen, cleanClaims, {
@@ -304,7 +307,7 @@ console.log(
         bullish: bullishScreen.market_axis.label,
         bear: bearScreen.market_axis.label,
       },
-      sam_100k: samNo.decision,
+      trust_kill_100k: trustKillNo.decision,
     },
     null,
     2,

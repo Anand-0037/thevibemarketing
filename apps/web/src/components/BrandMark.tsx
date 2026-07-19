@@ -23,24 +23,24 @@ export function BrandMark({
       aria-label={title}
     >
       <title>{title}</title>
-      <rect width="32" height="32" rx="6" fill="#0b0d10" />
+      <rect width="32" height="32" rx="6" fill="var(--bg-elevated)" />
       <rect
         x="0.5"
         y="0.5"
         width="31"
         height="31"
         rx="5.5"
-        stroke="#243041"
+        stroke="var(--line)"
       />
       <path
         d="M5 23 L11 15 L16 19 L22 9 L27 14"
-        stroke="#d4ff4a"
+        stroke="var(--accent)"
         strokeWidth="2.25"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
-      <circle cx="22" cy="9" r="2.25" fill="#d4ff4a" />
+      <circle cx="22" cy="9" r="2.25" fill="var(--accent)" />
     </svg>
   );
 

@@ -61,11 +61,11 @@ export function decide100k(
   let decision_conf = 0.5;
   let rationale = '';
 
-  // Any material Trust contradiction kills a $100K check (demo money shot: Sam Rivera).
+  // Any material Trust contradiction kills a $100K decision-support YES.
   if (contradictions >= 1) {
     decision = 'no';
     decision_conf = contradictions >= 2 || avgClaimConf < 0.4 ? 0.78 : 0.7;
-    rationale = `${contradictions} material claim contradiction(s); trust too low for a $100K check`;
+    rationale = `${contradictions} material claim contradiction(s); trust too low for a $100K recommendation`;
   } else if (weak >= 2 && !anyAbstain) {
     decision = 'no';
     decision_conf = 0.65;
@@ -135,7 +135,15 @@ export function decide100k(
  * Build an evidence-backed memo from structured data (offline-capable, no LLM).
  */
 export function buildMemo(input: MemoBuildInput): Memo {
-  const { founder, product, screening, thesis, claims: inputClaims, extra_gaps } = input;
+  const {
+    founder,
+    product,
+    screening,
+    thesis,
+    claims: inputClaims,
+    extra_gaps,
+    research,
+  } = input;
   const claims = inputClaims ?? [...founder.claims, ...(product?.traction_claims ?? [])];
   const gaps: string[] = [...(extra_gaps ?? [])];
 
@@ -147,10 +155,13 @@ export function buildMemo(input: MemoBuildInput): Memo {
   gaps.push('Financials & round structure: not disclosed');
   gaps.push('Customer references: unavailable at this stage');
   if (!founder.bio) gaps.push('Founder bio: thin / not disclosed');
-  if (founder.gravity.abstain) {
+  if (founder.gravity?.abstain) {
     gaps.push(
       `Distribution gravity: abstained — ${founder.gravity.abstain_reason ?? 'thin signal'}`,
     );
+  }
+  for (const q of research?.open_questions ?? []) {
+    if (!gaps.includes(q)) gaps.push(q);
   }
 
   const { decision, decision_conf, rationale } = decide100k(screening, claims, thesis);
@@ -169,7 +180,7 @@ export function buildMemo(input: MemoBuildInput): Memo {
         product?.oneliner
           ? `In a nutshell: ${product.oneliner}`
           : 'In a nutshell: product one-liner not disclosed.',
-        `Founder ${founder.name} — Founder Score ${founder.founder_score.toFixed(1)} (conf ${(founder.score_confidence * 100).toFixed(0)}%), distribution gravity ${founder.gravity.gravity_score.toFixed(1)}.`,
+        `Founder ${founder.name} — Founder Score ${(founder.founder_score ?? 0).toFixed(1)} (conf ${((founder.score_confidence ?? 0) * 100).toFixed(0)}%), distribution gravity ${(founder.gravity?.gravity_score ?? 0).toFixed(1)}.`,
         thesis
           ? `Screened against thesis: sectors [${thesis.sectors.join(', ')}], stage ${thesis.stage}, geo ${thesis.geo}, check $${thesis.check_size.toLocaleString()}.`
           : 'No fund thesis configured — scores are thesis-agnostic.',
@@ -180,7 +191,7 @@ export function buildMemo(input: MemoBuildInput): Memo {
       title: 'Investment hypotheses',
       required: true,
       body: [
-        `• Team / distribution: gravity ${founder.gravity.gravity_score.toFixed(0)} with evidence — ${founder.gravity.evidence.slice(0, 2).join('; ') || 'limited'}`,
+        `• Team / distribution: gravity ${(founder.gravity?.gravity_score ?? 0).toFixed(0)} with evidence — ${(founder.gravity?.evidence ?? []).slice(0, 2).join('; ') || 'limited'}`,
         `• Founder axis: ${screening.founder_axis.score.toFixed(0)} (${screening.founder_axis.label}, ${screening.founder_axis.trend})`,
         `• Market axis: ${screening.market_axis.score.toFixed(0)} (${screening.market_axis.label}) — ${screening.market_axis.rationale}`,
         `• Idea-vs-market: ${screening.idea_axis.score.toFixed(0)} (${screening.idea_axis.label}) — ${screening.idea_axis.rationale}`,
@@ -192,7 +203,7 @@ export function buildMemo(input: MemoBuildInput): Memo {
       title: 'SWOT',
       required: true,
       body: [
-        `Strengths: ${founder.gravity.gravity_score >= 55 ? 'earns attention relative to network (distribution gravity)' : 'limited public strength so far'}; Founder Score ${founder.founder_score.toFixed(0)}`,
+        `Strengths: ${(founder.gravity?.gravity_score ?? 0) >= 55 ? 'earns attention relative to network (distribution gravity)' : 'limited public strength so far'}; Founder Score ${(founder.founder_score ?? 0).toFixed(0)}`,
         `Weaknesses: ${claims.filter((c) => c.contradiction).map((c) => c.contradiction_note).join('; ') || 'no flagged claim contradictions'}; cap table opaque`,
         `Opportunities: ${product?.sector ? `wedge in ${product.sector}` : 'sector undefined — exploration needed'}; cold-start-friendly scoring does not zero first-time founders`,
         `Threats: ${screening.market_axis.score < 45 ? 'thesis/market fit weak' : 'competitive density unknown'}; public-signal scoring can miss private traction`,
@@ -229,8 +240,112 @@ export function buildMemo(input: MemoBuildInput): Memo {
         `Founder: ${founder.name}`,
         founder.bio ? `Bio: ${founder.bio}` : 'Bio: not disclosed',
         `Handles: ${JSON.stringify(founder.handles)}`,
-        `Links: ${founder.links.join(', ') || 'none'}`,
+        `Links: ${(founder.links ?? []).join(', ') || 'none'}`,
       ].join('\n'),
+    },
+    {
+      key: 'technology_defensibility',
+      title: 'Technology & defensibility',
+      required: false,
+      body:
+        'Technology & defensibility: not disclosed at this stage. Proprietary vs commoditizable architecture, data moat, and model choices require founder interview / deck — flagged rather than guessed.',
+    },
+    {
+      key: 'market_sizing',
+      title: 'Market sizing',
+      required: false,
+      body: (() => {
+        const marketFindings = (research?.findings ?? []).filter(
+          (f) => f.topic === 'market' || f.topic === 'competition',
+        );
+        if (marketFindings.length > 0) {
+          return [
+            'Market notes from deep research (cite-bound — not invented TAM):',
+            ...marketFindings.map(
+              (f) =>
+                `• [${f.support}] ${f.claim}${f.citations[0] ? ` — ${f.citations[0].url}` : ''}`,
+            ),
+            'TAM/SAM/SOM still not disclosed unless a citation states a figure.',
+          ].join('\n');
+        }
+        return product?.sector
+          ? `Market sizing: TAM/SAM/SOM not disclosed. Sector tag "${product.sector}" is a label only — no top-down or bottom-up sizing from public signals. Assumptions: unavailable.`
+          : 'Market sizing: not disclosed. Sector unknown; TAM/SAM/SOM unavailable at this stage.';
+      })(),
+    },
+    {
+      key: 'competition',
+      title: 'Competition',
+      required: false,
+      body: (() => {
+        const comp = (research?.findings ?? []).filter(
+          (f) => f.topic === 'competition',
+        );
+        if (comp.length > 0) {
+          return [
+            'Competition notes from deep research (only named when cited):',
+            ...comp.map(
+              (f) =>
+                `• [${f.support}] ${f.claim}${f.citations[0] ? ` — ${f.citations[0].url}` : ''}`,
+            ),
+          ].join('\n');
+        }
+        return 'Competition: named competitor clusters unavailable from public Identify signals. Who could become a threat later: not disclosed — diligence open.';
+      })(),
+    },
+    {
+      key: 'financials',
+      title: 'Financials & round structure',
+      required: false,
+      body: 'Financials & round structure: not disclosed. Historical/projected P&L, runway, and next-round timing unavailable — not fabricated.',
+    },
+    {
+      key: 'cap_table',
+      title: 'Cap table',
+      required: false,
+      body: 'Cap table: not disclosed. Pre-/post-round ownership and VSOP allocation unavailable at this stage.',
+    },
+    {
+      key: 'due_diligence_log',
+      title: 'Due diligence log',
+      required: false,
+      body: [
+        'What was checked (automated):',
+        '• Deep research orchestration — Tavily + Firecrawl (+ E2B when repo/key) → cite-bound synthesis',
+        research
+          ? `• Research providers: ${Object.entries(research.provider_status)
+              .map(([k, v]) => `${k}=${v}`)
+              .join(', ')} · synthesis=${research.synthesis}${research.partial ? ' · PARTIAL' : ''}`
+          : '• Deep research: not run on this memo path',
+        research && research.findings.length > 0
+          ? `• Findings: ${research.findings.length} cite-bound notes`
+          : null,
+        '• Commercial / traction claims — per-claim Trust Score + contradiction flags',
+        '• People / public footprint — distribution gravity, Founder Score, cold-start weight redistribution',
+        '• Technical signals — GitHub/HN/arXiv source tags when present',
+        '• URL diligence — evidence URLs verified when configured (Firecrawl path)',
+        '• Validator agent — soft-corrects inflated claims vs observable signals',
+        '',
+        'Still open:',
+        ...(research?.open_questions?.length
+          ? research.open_questions.map((q) => `• ${q}`)
+          : [
+              '• Financial diligence — not disclosed',
+              '• Legal / entity — not disclosed',
+              '• Customer references — unavailable at this stage',
+              '• Cap table / round structure — not disclosed',
+            ]),
+        '',
+        `Claim count scored: ${claims.length}; contradictions: ${claims.filter((c) => c.contradiction).length}.`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    },
+    {
+      key: 'exit_perspective',
+      title: 'Exit perspective',
+      required: false,
+      body: 'Exit perspective: not modeled. Check-size decision-support only ($100K) — no exit comps invented from public noise.',
     },
     {
       key: 'decision',

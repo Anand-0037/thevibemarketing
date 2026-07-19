@@ -4,6 +4,7 @@ import { AuthBypassBanner } from "@/components/AuthBypassBanner";
 import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { Nav } from "@/components/Nav";
+import { ThemeScript } from "@/components/ThemeScript";
 import {
   KEYWORDS,
   SITE_DESCRIPTION,
@@ -33,8 +34,11 @@ const geistMono = Geist_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#0b0d10",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2f4f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0d10" },
+  ],
+  colorScheme: "dark light",
   width: "device-width",
   initialScale: 1,
 };
@@ -107,8 +111,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${instrument.variable} ${syne.variable} ${geistMono.variable} h-full`}
+      suppressHydrationWarning
+      data-theme="dark"
     >
       <head>
+        <ThemeScript />
         <link rel="author" href="/humans.txt" />
         <link
           rel="alternate"

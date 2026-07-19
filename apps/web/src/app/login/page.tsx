@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Sign in",
   path: "/login",
-  description: "Sign in with Google or email and password.",
+  description: "Sign in with email and password.",
 });
 
 export default async function LoginPage({

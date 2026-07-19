@@ -3,7 +3,7 @@ const STEPS = [
   { key: "THINK", desc: "Strategy from persistent memory" },
   { key: "CREATE", desc: "Draft posts, threads, assets" },
   { key: "GATE", desc: "HITL quality & brand check" },
-  { key: "ACT", desc: "Publish & engage in sandbox" },
+  { key: "ACT", desc: "Publish after approval" },
   { key: "LEARN", desc: "Feed outcomes back in" },
 ] as const;
 

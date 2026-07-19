@@ -12,51 +12,51 @@ export const metadata: Metadata = pageMetadata({
 const steps = [
   {
     n: "01",
-    title: "Open the product",
+    title: "Create your account",
     detail:
-      "Jump straight into the command center. Account signup is optional locally — create one when you want persistent sessions.",
-    href: "/app",
+      "Sign up so your brand brief, plans, and drafts persist across sessions.",
+    href: "/signup",
   },
   {
     n: "02",
-    title: "Brand onboarding",
+    title: "Brand brief from your URL",
     detail:
-      "Paste your product URL. We build brand memory (Firecrawl when keyed) so every draft stays on-voice.",
+      "Paste your product URL. We extract ICP, tone, and pillars so every draft stays on-voice.",
     href: "/app/onboarding",
   },
   {
     n: "03",
-    title: "Connect accounts",
+    title: "Plan and create",
     detail:
-      "OAuth via Composio for Reddit, X, LinkedIn, and more. Publish queues after connect — HITL still gates outbound.",
-    href: "/app/connectors",
-  },
-  {
-    n: "04",
-    title: "Studio + autonomy dial",
-    detail:
-      "Generate drafts from brand context. L1 = draft-only · L2 = approve-to-publish · L3 = supervised auto for connected channels.",
+      "Generate a short campaign plan and drafts from your brand context. You choose how much autonomy to allow.",
     href: "/app/studio",
   },
   {
-    n: "05",
-    title: "HITL queue",
+    n: "04",
+    title: "Approve in the queue",
     detail:
-      "Approve, edit, or reject with a note. Nothing ships past your gate without intent.",
+      "Approve, edit, or reject with a note. Nothing publishes without your gate.",
     href: "/app/queue",
   },
   {
-    n: "06",
-    title: "VC Brain — Identify + screen",
+    n: "05",
+    title: "Connect channels (beta)",
     detail:
-      "Identify live founders on Radar, compare gravity, run Diligence, open the $100K memo. Same engine, sourcing head.",
+      "Connect Reddit, X, LinkedIn, and more when you are ready. Publishing stays approval-gated.",
+    href: "/app/connectors",
+  },
+  {
+    n: "06",
+    title: "VC Brain (optional)",
+    detail:
+      "Investor workflow: radar, gravity compare, diligence, and a $100K decision-support memo — not an investment offer.",
     href: "/app/radar",
   },
   {
     n: "07",
     title: "Gravity Audit",
     detail:
-      "Free public tool — paste a GitHub user, repo, or product name and get a deterministic distribution-gravity score.",
+      "Free public tool — paste a GitHub user, repo, or product name for a distribution-gravity score.",
     href: "/tools/gravity-audit",
   },
 ] as const;

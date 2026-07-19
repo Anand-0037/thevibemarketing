@@ -23,6 +23,8 @@ export default function MemoPage() {
   const [copyNote, setCopyNote] = useState<string | null>(null);
   const [traceOpenSignal, setTraceOpenSignal] = useState(0);
   const [traceFocus, setTraceFocus] = useState<string | null>(null);
+  const [funnelClock, setFunnelClock] = useState<string | null>(null);
+  const [within24h, setWithin24h] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     const detail = await fetch(`/api/founders/${id}`);
@@ -31,10 +33,14 @@ export default function MemoPage() {
         founder: { name: string };
         memo?: Memo | null;
         screening?: Screening | null;
+        funnel_clock?: string;
+        within_24h?: boolean;
       };
       setName(d.founder.name);
       if (d.memo) setMemo(d.memo);
       if (d.screening) setScreening(d.screening);
+      setFunnelClock(d.funnel_clock ?? null);
+      setWithin24h(d.within_24h ?? null);
     }
     const res = await fetch(`/api/memo/${id}`);
     if (res.ok) {
@@ -189,7 +195,11 @@ export default function MemoPage() {
         </p>
       ) : null}
 
-      <ScreeningTheater active={busy} complete={theaterDone && !busy} />
+      <ScreeningTheater
+        active={busy}
+        complete={theaterDone && !busy}
+        founderId={id}
+      />
 
       {error ? (
         <p className="mt-3 text-sm text-danger" role="alert">
@@ -219,14 +229,56 @@ export default function MemoPage() {
               slam && memo.decision === "no" ? "decision-slam" : ""
             }`}
           >
-            <p className="section-label">$100K decision</p>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="section-label">$100K decision-support</p>
+              {funnelClock ? (
+                <span
+                  className={`font-mono text-[10px] uppercase tracking-wider ${
+                    within24h ? "text-ok" : "text-warn"
+                  }`}
+                  title="24h SLA — time since first Memory write"
+                >
+                  {funnelClock}
+                </span>
+              ) : null}
+            </div>
             <p className="mt-2 font-display text-5xl font-bold uppercase tracking-tight tabular-nums sm:text-6xl">
               {memo.decision}
             </p>
             <p className="mt-2 text-sm tabular-nums opacity-90">
               Confidence {(memo.decision_conf * 100).toFixed(0)}%
             </p>
+            <p className="mt-3 max-w-xl text-xs opacity-80">
+              Decision-support for a human investor — not an investment offer or
+              automated wire. Gaps below are honest unknowns, not invented
+              numbers.
+            </p>
           </div>
+
+          <section className="mt-8">
+            <h2 className="font-display text-lg font-semibold">
+              Gaps · due diligence first
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              Judges care what we refuse to invent. Cap table / financials stay
+              “not disclosed” until evidence lands.
+            </p>
+            <ul className="mt-3 space-y-1 text-sm text-muted">
+              {memo.gaps.map((g) => (
+                <li key={g}>· {g}</li>
+              ))}
+            </ul>
+            {memo.sections
+              .filter((s) => s.key === "due_diligence_log")
+              .map((s) => (
+                <article key={s.key} className="panel mt-4 border-accent/30 p-4">
+                  <h3 className="font-display font-semibold">{s.title}</h3>
+                  <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted">
+                    {s.body}
+                  </pre>
+                </article>
+              ))}
+          </section>
 
           {screening ? (
             <section className="mt-8">
@@ -302,6 +354,16 @@ export default function MemoPage() {
                       onInspect={runId ? inspectTrust : undefined}
                     />
                   </div>
+                  {c.evidence_url ? (
+                    <a
+                      href={c.evidence_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 block break-all text-xs text-accent hover:underline"
+                    >
+                      {c.evidence_url}
+                    </a>
+                  ) : null}
                   {c.contradiction && c.contradiction_note ? (
                     <p className="mt-2 text-xs text-danger">{c.contradiction_note}</p>
                   ) : null}
@@ -310,32 +372,27 @@ export default function MemoPage() {
             </ul>
           </section>
 
-          <section className="mt-8">
-            <h2 className="font-display text-lg font-semibold">Gaps</h2>
-            <ul className="mt-3 space-y-1 text-sm text-muted">
-              {memo.gaps.map((g) => (
-                <li key={g}>· {g}</li>
-              ))}
-            </ul>
-          </section>
-
           <section className="mt-8 space-y-4">
-            <h2 className="font-display text-lg font-semibold">Sections</h2>
-            {memo.sections.map((s) => (
-              <article key={s.key} className="panel p-4">
-                <h3 className="font-display font-semibold">
-                  {s.title}
-                  {s.required ? (
-                    <span className="ml-2 font-mono text-[10px] text-muted">
-                      required
-                    </span>
-                  ) : null}
-                </h3>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted">
-                  {s.body}
-                </pre>
-              </article>
-            ))}
+            <h2 className="font-display text-lg font-semibold">
+              Appendix sections
+            </h2>
+            {memo.sections
+              .filter((s) => s.key !== "due_diligence_log")
+              .map((s) => (
+                <article key={s.key} className="panel p-4">
+                  <h3 className="font-display font-semibold">
+                    {s.title}
+                    {s.required ? (
+                      <span className="ml-2 font-mono text-[10px] text-muted">
+                        required
+                      </span>
+                    ) : null}
+                  </h3>
+                  <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted">
+                    {s.body}
+                  </pre>
+                </article>
+              ))}
           </section>
         </>
       )}

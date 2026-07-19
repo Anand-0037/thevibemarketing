@@ -14,7 +14,9 @@ export function TrustBadge({
   size = "sm",
   onInspect,
 }: Props) {
-  const pct = Math.round(confidence * 100);
+  const pct = Number.isFinite(confidence)
+    ? Math.round(confidence * 100)
+    : 0;
   const titleParts = [
     `Diligence · confidence ${pct}% — evidence support for this claim`,
   ];

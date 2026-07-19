@@ -7,41 +7,87 @@ type Props = {
   active: boolean;
   /** When true, snap all steps to done */
   complete?: boolean;
+  /** Poll `/api/traces/latest/[founderId]` while screening */
+  founderId?: string | null;
   onDoneVisual?: () => void;
 };
 
 /**
- * Live pipeline steps while screen/memo runs.
+ * Pipeline progress — driven by real Memory traces for this founder.
  */
-export function ScreeningTheater({ active, complete, onDoneVisual }: Props) {
-  const [index, setIndex] = useState(-1);
+export function ScreeningTheater({
+  active,
+  complete,
+  founderId,
+  onDoneVisual,
+}: Props) {
+  const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
+  const [live, setLive] = useState(false);
 
   useEffect(() => {
     if (!active && !complete) {
-      setIndex(-1);
+      setDoneIds(new Set());
+      setLive(false);
       return;
     }
     if (complete) {
-      setIndex(PIPELINE_STEPS.length);
+      setDoneIds(new Set(PIPELINE_STEPS.map((s) => s.id)));
       onDoneVisual?.();
       return;
     }
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setIndex(PIPELINE_STEPS.length);
-      onDoneVisual?.();
-      return;
-    }
-    setIndex(0);
+    if (!founderId) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/traces/latest/${founderId}`);
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as {
+          traces?: Array<{ step?: string }>;
+        };
+        const rows = body.traces ?? [];
+        if (rows.length === 0) return;
+        const ids = new Set<string>();
+        for (const row of rows) {
+          if (row.step) ids.add(row.step);
+        }
+        if (!cancelled) {
+          setDoneIds(ids);
+          setLive(true);
+        }
+      } catch {
+        /* ignore poll errors */
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(() => void tick(), 350);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [active, complete, founderId, onDoneVisual]);
+
+  // Soft fallback only until first real trace lands
+  useEffect(() => {
+    if (!active || complete || live) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let i = 0;
     const id = window.setInterval(() => {
-      setIndex((i) => {
-        if (i >= PIPELINE_STEPS.length - 1) return i;
-        return i + 1;
+      i += 1;
+      setDoneIds((prev) => {
+        if (prev.size > 0) return prev;
+        return new Set(
+          PIPELINE_STEPS.slice(0, Math.min(i, 2)).map((s) => s.id),
+        );
       });
-    }, 420);
+    }, 600);
     return () => window.clearInterval(id);
-  }, [active, complete, onDoneVisual]);
+  }, [active, complete, live]);
 
   if (!active && !complete) return null;
+
+  const currentIdx = PIPELINE_STEPS.findIndex((s) => !doneIds.has(s.id));
 
   return (
     <div
@@ -50,11 +96,13 @@ export function ScreeningTheater({ active, complete, onDoneVisual }: Props) {
       aria-live="polite"
       aria-label="Screening pipeline"
     >
-      <p className="section-label mb-3">Agent pipeline</p>
+      <p className="section-label mb-3">
+        Agent pipeline{live || complete ? " · live traces" : ""}
+      </p>
       <ol className="space-y-2">
         {PIPELINE_STEPS.map((step, i) => {
-          const done = complete || i < index;
-          const current = !complete && i === index;
+          const done = complete || doneIds.has(step.id);
+          const current = !complete && !done && i === currentIdx;
           return (
             <li
               key={step.id}
@@ -73,7 +121,11 @@ export function ScreeningTheater({ active, complete, onDoneVisual }: Props) {
               >
                 {done ? "✓" : current ? "▸" : String(i + 1)}
               </span>
-              <span className={current ? "text-accent" : done ? "text-ink" : "text-muted"}>
+              <span
+                className={
+                  current ? "text-accent" : done ? "text-ink" : "text-muted"
+                }
+              >
                 {step.label}
               </span>
               <span className="ml-auto text-[10px] text-muted">{step.id}</span>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   AutonomyLevel,
   BrandContext,
+  CampaignBrief,
   LoopRun,
   Post,
 } from "@/lib/marketing-store";
@@ -34,17 +35,21 @@ export default function StudioPage() {
   const [savingAutonomy, setSavingAutonomy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [campaign, setCampaign] = useState<CampaignBrief | null>(null);
+  const [campaignBusy, setCampaignBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [brandRes, postsRes, autonomyRes, loopsRes] = await Promise.all([
-        fetch("/api/marketing/brand"),
-        fetch("/api/marketing/posts"),
-        fetch("/api/marketing/autonomy"),
-        fetch("/api/marketing/loops"),
-      ]);
+      const [brandRes, postsRes, autonomyRes, loopsRes, campRes] =
+        await Promise.all([
+          fetch("/api/marketing/brand"),
+          fetch("/api/marketing/posts"),
+          fetch("/api/marketing/autonomy"),
+          fetch("/api/marketing/loops"),
+          fetch("/api/marketing/campaign"),
+        ]);
       if (!brandRes.ok || !postsRes.ok) throw new Error("Failed to load studio");
       const brandData = (await brandRes.json()) as { brand: BrandContext | null };
       const postsData = (await postsRes.json()) as { posts: Post[] };
@@ -57,6 +62,10 @@ export default function StudioPage() {
       if (loopsRes.ok) {
         const l = (await loopsRes.json()) as { loops: LoopRun[] };
         setLoops(l.loops.slice(0, 6));
+      }
+      if (campRes.ok) {
+        const c = (await campRes.json()) as { campaign: CampaignBrief | null };
+        setCampaign(c.campaign);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
@@ -79,12 +88,44 @@ export default function StudioPage() {
         const body = (await res.json()) as { error?: string };
         throw new Error(body.error || "Draft generation failed");
       }
-      setBanner("Generated 3 template drafts (offline templates).");
+      const data = (await res.json()) as {
+        source?: string;
+        openai?: { ok: boolean; detail?: string; fallback?: string };
+      };
+      const source = data.source ?? "template";
+      setBanner(
+        data.openai?.ok
+          ? `Generated 3 on-brand drafts (${source}) → review in HITL queue.`
+          : `Generated 3 drafts via templates (${source}${data.openai?.detail ? ` · ${data.openai.detail}` : ""}). Connect OpenAI for richer voice.`,
+      );
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Draft generation failed");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function generateCampaign() {
+    setCampaignBusy(true);
+    setError(null);
+    setBanner(null);
+    try {
+      const res = await fetch("/api/marketing/campaign", { method: "POST" });
+      if (!res.ok) {
+        const body = (await res.json()) as { error?: string };
+        throw new Error(body.error || "Campaign brief failed");
+      }
+      const data = (await res.json()) as { campaign: CampaignBrief };
+      setCampaign(data.campaign);
+      setBanner(
+        "7-day campaign brief saved. Generate channel drafts next — still HITL before anything queues.",
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Campaign brief failed");
+    } finally {
+      setCampaignBusy(false);
     }
   }
 
@@ -156,30 +197,42 @@ export default function StudioPage() {
     }
   }
 
-  const busy = generating || loopBusy !== null;
+  const busy = generating || campaignBusy || loopBusy !== null;
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="section-label mb-2">Marketing fleet</p>
           <h1 className="font-display text-3xl font-bold tracking-tight">
             Studio
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            Brand context in, drafts out. Run distribution or opportunity loops,
-            then send everything to the HITL queue before anything publishes.
+            For SaaS founders, startups, and MSMEs: turn brand context into a
+            7-day campaign brief and channel drafts (X, LinkedIn, Reddit). HITL
+            before anything queues — Google Business Profile posts coming soon.
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
-          onClick={() => void generate()}
-          disabled={busy}
-          aria-busy={generating}
-        >
-          {generating ? "Generating…" : "Generate 3 drafts"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => void generateCampaign()}
+            disabled={busy || campaignBusy}
+            aria-busy={campaignBusy}
+          >
+            {campaignBusy ? "Planning…" : "7-day campaign brief"}
+          </button>
+          <button
+            type="button"
+            className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => void generate()}
+            disabled={busy || campaignBusy}
+            aria-busy={generating}
+          >
+            {generating ? "Generating…" : "Generate 3 drafts"}
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -193,13 +246,40 @@ export default function StudioPage() {
         </p>
       ) : null}
 
+      {campaign ? (
+        <section className="panel mt-8 p-4" aria-label="7-day campaign brief">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-accent">
+            Campaign brief
+          </p>
+          <h2 className="mt-1 font-display text-lg font-semibold">
+            {campaign.title}
+          </h2>
+          <p className="mt-1 text-sm text-muted">Audience: {campaign.audience}</p>
+          <ol className="mt-4 space-y-2">
+            {campaign.days.map((d) => (
+              <li
+                key={d.day}
+                className="border border-line px-3 py-2 text-sm"
+              >
+                <span className="font-mono text-[10px] uppercase text-accent">
+                  Day {d.day} · {d.channel}
+                </span>
+                <p className="mt-0.5 font-medium text-ink">{d.goal}</p>
+                <p className="mt-0.5 text-xs text-muted">{d.draft_hint}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 font-mono text-[10px] text-muted">{campaign.note}</p>
+        </section>
+      ) : null}
+
       <section className="panel mt-8 p-4" aria-label="Agentic loops">
         <p className="font-mono text-[10px] uppercase tracking-widest text-accent">
           Agentic loops
         </p>
         <p className="mt-1 text-sm text-muted">
-          Template drafts — offline when no model key. Posts land
-          as pending for HITL.
+          Daily + opportunity drafts for X / LinkedIn / Reddit. OpenAI when
+          keyed; otherwise templates. Everything lands pending for HITL.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button

@@ -65,8 +65,8 @@ export function CheckoutButton({ tier, label, highlight }: Props) {
           </Link>
         </p>
       ) : (
-        <p className="text-center font-mono text-[10px] text-muted">
-          Dodo when keyed · else waitlist
+        <p className="text-center text-xs text-muted">
+          Checkout opens when payments are enabled · otherwise join the waitlist
         </p>
       )}
     </div>

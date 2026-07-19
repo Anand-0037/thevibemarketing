@@ -19,8 +19,3 @@ export function fetchProductHuntLaunches(): SourceFetchResult {
     status: 501,
   };
 }
-
-/** @deprecated Use fetchProductHuntLaunches — always empty. */
-export function loadCuratedLaunches(): NormalizedIngestItem[] {
-  return [];
-}

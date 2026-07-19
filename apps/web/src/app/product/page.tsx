@@ -9,7 +9,7 @@ export const metadata: Metadata = pageMetadata({
   title: "Product",
   path: "/product",
   description:
-    "Every thevibemarketing feature — brand memory, agent fleet, studio, HITL, connectors, SEO/AEO, sandbox, VC Brain.",
+    "vibemarketer capabilities — brand brief, campaign plans, studio drafts, HITL approval, connectors, SEO/AEO, and VC Brain.",
 });
 
 export default function ProductPage() {
@@ -20,9 +20,8 @@ export default function ProductPage() {
         Cursor for marketing
       </h1>
       <p className="mt-4 max-w-2xl text-lg text-muted">
-        An agent fleet that owns outcomes — not another scheduler, not a
-        copywriter. Strategy, creation, distribution, and learning in one loop
-        with memory that never forgets your startup.
+        Brand brief from your URL, campaign plans, drafts you approve, and
+        learning from what ships — not another scheduler or one-shot copywriter.
       </p>
 
       <div className="mt-8 flex flex-wrap gap-3">
@@ -144,8 +143,8 @@ export default function ProductPage() {
         <Link href="/vc-brain" className="btn-ghost focus-ring">
           VC Brain
         </Link>
-        <Link href="/#waitlist" className="btn-ghost focus-ring">
-          Join waitlist
+        <Link href="/signup" className="btn-ghost focus-ring">
+          Start free
         </Link>
       </div>
     </div>

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthNav } from "@/components/AuthNav";
 import { BrandMark } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { SITE_NAME } from "@/lib/site";
 
 const links = [
@@ -22,6 +23,10 @@ export function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
   if (pathname?.startsWith("/app")) return null;
 
   return (
@@ -36,7 +41,10 @@ export function Nav() {
           <span className="font-display text-lg font-bold">{SITE_NAME}</span>
         </Link>
 
-        <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
+        <nav
+          className="hidden items-center gap-5 lg:!flex"
+          aria-label="Primary"
+        >
           {links.map((l) => (
             <Link
               key={l.href}
@@ -51,21 +59,25 @@ export function Nav() {
               {l.label}
             </Link>
           ))}
+          <ThemeToggle compact />
           <Link href="/app" className="btn-ghost focus-ring !px-3 !py-1.5 text-sm">
             Open app
           </Link>
           <AuthNav />
         </nav>
 
-        <button
-          type="button"
-          className="btn-ghost focus-ring !px-3 !py-1.5 text-sm lg:hidden"
-          aria-expanded={open}
-          aria-controls="mobile-nav"
-          onClick={() => setOpen((v) => !v)}
-        >
-          Menu
-        </button>
+        <div className="flex items-center gap-2 lg:!hidden">
+          <ThemeToggle compact />
+          <button
+            type="button"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+            onClick={() => setOpen((v) => !v)}
+          >
+            Menu
+          </button>
+        </div>
       </div>
 
       {open ? (
@@ -97,6 +109,15 @@ export function Nav() {
             </li>
             <li>
               <Link
+                href="/signup"
+                className="focus-ring block text-sm font-semibold text-ink"
+                onClick={() => setOpen(false)}
+              >
+                Start free
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/login"
                 className="focus-ring block text-sm text-muted hover:text-accent"
                 onClick={() => setOpen(false)}
@@ -104,14 +125,8 @@ export function Nav() {
                 Sign in
               </Link>
             </li>
-            <li>
-              <Link
-                href="/signup"
-                className="focus-ring block text-sm font-semibold text-ink"
-                onClick={() => setOpen(false)}
-              >
-                Sign up
-              </Link>
+            <li className="pt-2">
+              <ThemeToggle />
             </li>
           </ul>
         </nav>

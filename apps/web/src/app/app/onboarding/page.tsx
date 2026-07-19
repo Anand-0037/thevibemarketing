@@ -38,7 +38,7 @@ function inferBrandFromUrl(url: string): Omit<BrandContext, "updated_at"> {
     url,
     name,
     oneliner: `${name} — SaaS product for builders who need distribution.`,
-    icp: "solo SaaS founders",
+    icp: "SaaS founders, startups, and MSMEs seeking distribution",
     tone: "direct/technical",
     pillars: ["product-led growth", "community", "content"],
   };

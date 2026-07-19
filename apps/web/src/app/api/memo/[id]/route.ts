@@ -9,6 +9,7 @@ import { runVcBrainPipeline } from "@/lib/pipeline";
 import { getStore } from "@/lib/store";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 async function maybePolishSections(
   sections: MemoSection[],

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ConnectorWall } from "@/components/ConnectorWall";
 import { FeatureGrid } from "@/components/FeatureGrid";
-import { HeroFleet3D } from "@/components/HeroFleet3D";
+import { HeroProductPreview } from "@/components/HeroProductPreview";
 import { JsonLd } from "@/components/JsonLd";
 import { LoopDiagram } from "@/components/LoopDiagram";
 import { VcBrainTeaser } from "@/components/VcBrainTeaser";
@@ -11,29 +11,30 @@ import { WaitlistForm } from "@/components/WaitlistForm";
 import { FLEET_ROLES } from "@/content/features";
 import { postsSorted } from "@/content/posts";
 import { faqJsonLd, pageMetadata } from "@/lib/seo";
+import { SITE_EMAIL, SOCIAL } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "vibemarketer",
   path: "/",
   description:
-    "Autonomous AI Agent Fleet for your Marketing Department. Operates 24/365. Cursor for marketing — SEO/AEO, HITL, and VC Brain founder sourcing.",
+    "Cursor for marketing — turn a product URL into a brand brief, a seven-day campaign, and drafts you approve before anything publishes.",
 });
 
 const HOME_FAQS = [
   {
     question: "What is vibemarketer?",
     answer:
-      "An autonomous AI agent fleet that runs SaaS marketing — strategy, content, distribution, SEO/AEO, and learning loops — with a human-in-the-loop autonomy dial.",
+      "A marketing workspace that turns your product URL into a brand brief, campaign plan, and approval-gated drafts — with an autonomy dial you control.",
   },
   {
     question: "What is VC Brain?",
     answer:
-      "A feature on the same engine that sources and screens founders by distribution gravity, scores three independent axes, and writes evidence-backed $100K memos.",
+      "A separate founder-sourcing workflow on the same engine: distribution gravity, thesis fit, and evidence-backed memos for a $100K decision-support check (hackathon track — not an investment offer).",
   },
   {
     question: "How is this different from a copywriting tool?",
     answer:
-      "Agents own the full loop (sense → think → create → gate → act → learn) with persistent brand memory — not one-shot text generation.",
+      "It runs a full loop (sense → think → create → gate → act → learn) with brand context you can review — not one-shot text generation.",
   },
   {
     question: "Is distribution gravity for cold-start founders?",
@@ -55,44 +56,42 @@ export default function HomePage() {
           className="pointer-events-none absolute inset-0 opacity-50"
           style={{
             background:
-              "radial-gradient(ellipse 55% 70% at 85% 45%, rgba(212,255,74,0.14), transparent 60%), radial-gradient(ellipse 40% 50% at 10% 80%, rgba(107,140,174,0.12), transparent 55%)",
+              "radial-gradient(ellipse 55% 70% at 85% 45%, var(--glow-accent), transparent 60%), radial-gradient(ellipse 40% 50% at 10% 80%, var(--glow-cool), transparent 55%)",
           }}
         />
-        {/* Classic product hero: copy left · visual right */}
-        <div className="site-shell relative grid min-h-[min(92vh,920px)] items-center gap-10 py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12 lg:py-16">
+        {/* Product hero: one promise · one primary CTA · static visual */}
+        <div className="site-shell relative grid items-center gap-10 py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12 lg:py-20">
           <div className="order-1 max-w-2xl">
-            <p className="rise section-label mb-4">mission control for growth</p>
+            <p className="rise section-label mb-4">for SaaS founders</p>
             <h1 className="rise-delay font-display text-5xl font-bold leading-[0.98] tracking-tight text-ink sm:text-6xl md:text-7xl xl:text-[5.25rem]">
               vibemarketer
             </h1>
             <p className="rise-delay-2 mt-6 max-w-xl text-xl leading-relaxed text-muted sm:text-2xl">
-              Autonomous AI Agent Fleet for your Marketing Department. Operates
-              24/365.
+              Paste a product or business URL. Get a brand brief, a seven-day
+              campaign, and X / LinkedIn / Reddit drafts you approve before
+              anything queues to publish.
             </p>
             <div className="rise-delay-2 mt-10 flex flex-wrap gap-3">
               <Link
-                href="/get-started"
+                href="/signup"
                 className="btn-primary focus-ring text-base"
               >
-                Get started
+                Start free
               </Link>
-              <Link href="/app" className="btn-ghost focus-ring text-base">
-                Open app
+              <Link href="/demo" className="btn-ghost focus-ring text-base">
+                See how it works
               </Link>
-              <a href="#waitlist" className="btn-ghost focus-ring text-base">
-                Join waitlist
-              </a>
             </div>
-            <p className="rise-delay-2 mt-8 text-base text-muted">
-              Same engine powers{" "}
+            <p className="rise-delay-2 mt-8 text-sm text-muted">
+              Also building{" "}
               <Link href="/vc-brain" className="text-accent hover:underline">
                 VC Brain
               </Link>{" "}
-              — distribution gravity for founder sourcing.
+              — founder sourcing for investors (separate workflow).
             </p>
           </div>
           <div className="order-2 rise-delay-2 lg:justify-self-end">
-            <HeroFleet3D />
+            <HeroProductPreview />
           </div>
         </div>
       </section>
@@ -148,7 +147,7 @@ export default function HomePage() {
         <div className="site-shell py-16 sm:py-20">
           <p className="section-label mb-3">The fleet</p>
           <h2 className="font-display mb-8 text-3xl font-semibold tracking-tight sm:text-4xl">
-            An org chart that never sleeps
+            Roles that cover the marketing loop
           </h2>
           <ul className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
             {FLEET_ROLES.map((agent) => (
@@ -172,7 +171,7 @@ export default function HomePage() {
             <div>
               <p className="section-label mb-3">Connectors</p>
               <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                Founder channels, live
+                Channels you can connect
               </h2>
             </div>
             <Link
@@ -194,8 +193,9 @@ export default function HomePage() {
               VC Brain finds founders the way the market finds them
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-              Distribution gravity scores hidden builders — then writes an
-              evidence-backed memo for a $100K decision. Pedigree is not the score.
+              Distribution gravity scores builders by earned pull — then drafts an
+              evidence-backed memo for a $100K decision-support check (hackathon
+              track, not an investment offer). Pedigree is not the score.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/app/radar" className="btn-primary focus-ring text-base">
@@ -330,20 +330,24 @@ export default function HomePage() {
           <p className="mt-4 text-sm text-muted">
             Early access — we&apos;ll email when a seat opens.{" "}
             <a
-              href="mailto:anandcollege07@gmail.com"
+              href={`mailto:${SITE_EMAIL}`}
               className="text-accent hover:underline"
             >
-              anandcollege07@gmail.com
+              {SITE_EMAIL}
             </a>
-            {" · "}
-            <a
-              href="https://x.com/AnandVashisht15"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline"
-            >
-              @AnandVashisht15
-            </a>
+            {SOCIAL.x ? (
+              <>
+                {" · "}
+                <a
+                  href={SOCIAL.x}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  @{SOCIAL.x_handle}
+                </a>
+              </>
+            ) : null}
             {" · "}
             <Link href="/pricing" className="text-accent hover:underline">
               Pricing

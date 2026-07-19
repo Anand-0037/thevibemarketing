@@ -9,7 +9,7 @@ export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   path: "/pricing",
   description:
-    "Solo $49 · Startup $149 · Fleet custom — agentic marketing priced like a dev tool. Dodo Payments when keyed.",
+    "Solo $49 · Startup $149 · Fleet custom — marketing workspace priced like a dev tool. Checkout and waitlist available.",
 });
 
 const tiers = [

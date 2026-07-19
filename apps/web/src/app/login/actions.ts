@@ -92,15 +92,13 @@ export async function signUpWithPassword(
     return { error: "Passwords do not match." };
   }
 
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
+  const { siteUrl } = await import("@/lib/site");
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: normalizeEmail(emailRaw),
     password,
     options: {
-      emailRedirectTo: origin
-        ? `${origin.replace(/\/$/, "")}/auth/callback?next=${encodeURIComponent(next)}`
-        : undefined,
+      emailRedirectTo: `${siteUrl("/auth/callback")}?next=${encodeURIComponent(next)}`,
     },
   });
 
@@ -126,15 +124,19 @@ export async function signInWithGoogle(
   formData: FormData,
 ): Promise<AuthActionState> {
   if (!isAuthConfigured()) return notConfigured();
+  if (process.env.NEXT_PUBLIC_GOOGLE_OAUTH !== "1") {
+    return {
+      error:
+        "Google sign-in is not enabled yet. Use email + password, or enable the Google provider in Supabase and set NEXT_PUBLIC_GOOGLE_OAUTH=1.",
+    };
+  }
   const limited = await rateLimited("oauth-google");
   if (limited) return limited;
 
   const next = safeNextPath(String(formData.get("next") ?? "/app"));
-  const origin =
-    (await headers()).get("origin") ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
-  const redirectTo = `${origin.replace(/\/$/, "")}/auth/callback?next=${encodeURIComponent(next)}`;
+  // Prefer canonical SITE_URL — request Origin can be apex/www mismatch.
+  const { siteUrl } = await import("@/lib/site");
+  const redirectTo = `${siteUrl("/auth/callback")}?next=${encodeURIComponent(next)}`;
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -151,7 +153,7 @@ export async function signInWithGoogle(
   if (error || !data.url) {
     return {
       error:
-        "Google sign-in unavailable. Enable the Google provider in Supabase Auth.",
+        "Google sign-in unavailable. Enable the Google provider in Supabase Auth (Authentication → Providers → Google).",
     };
   }
 

@@ -18,7 +18,7 @@ function isPublicApi(path: string): boolean {
   ) {
     return true;
   }
-  if (path.startsWith("/api/health/")) return true;
+  // /api/health/* is private — burns provider quota if public.
   return false;
 }
 

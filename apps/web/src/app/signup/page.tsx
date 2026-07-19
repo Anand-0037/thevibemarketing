@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Sign up",
   path: "/signup",
-  description: "Create an account with Google or email and password.",
+  description: "Create an account with email and password.",
 });
 
 export default async function SignupPage({

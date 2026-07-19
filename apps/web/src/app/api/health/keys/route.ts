@@ -6,6 +6,7 @@ import {
   searchMemories,
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -153,8 +154,11 @@ async function checkSupermemory(): Promise<KeyRow> {
   };
 }
 
-/** GET — live key health for UI / debugging (no secret values). */
+/** GET — authenticated key health (no secret values). Burns provider quota — not public. */
 export async function GET() {
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+
   const [openai, firecrawl, github, tavily, supermemory, composio, e2b] =
     await Promise.all([
       checkOpenAI(),

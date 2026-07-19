@@ -8,8 +8,17 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { createHash } from "node:crypto";
-import type { Founder, Product, Signal, StoreData } from "@vibe/engine";
+import { createHash, randomUUID } from "node:crypto";
+import type {
+  Founder,
+  Memo,
+  Product,
+  Screening,
+  Signal,
+  StoreData,
+  Thesis,
+  TraceStep,
+} from "@vibe/engine";
 import { getWorkspaceOwnerId } from "./workspace-context";
 
 function dualEnabled(): boolean {
@@ -54,8 +63,9 @@ async function ensureWorkspace(sb: SupabaseClient): Promise<string | null> {
   const cached = workspaceByOwner.get(ownerId);
   if (cached) return cached;
 
+  // Shared workspace ID only when explicitly opted in (never default — breaks multi-tenant).
   const envWs = process.env.VC_BRAIN_WORKSPACE_ID?.trim();
-  if (envWs) {
+  if (envWs && process.env.ALLOW_SHARED_WORKSPACE === "1") {
     workspaceByOwner.set(ownerId, envWs);
     return envWs;
   }
@@ -138,8 +148,9 @@ export async function dualWriteFounder(
       workspace_id: ws,
       name: founder.name,
       handles: founder.handles,
-      links: founder.links,
+      links: founder.links ?? [],
       bio: founder.bio ?? null,
+      claims: founder.claims ?? [],
       founder_score: founder.founder_score,
       score_confidence: founder.score_confidence,
       gravity: founder.gravity,
@@ -170,6 +181,165 @@ export async function dualWriteFounder(
     at: founder.updated_at,
   });
   if (evErr) throw new Error(`[postgres-dual] score_event: ${evErr.message}`);
+}
+
+export async function dualWriteProduct(product: Product): Promise<void> {
+  const sb = getAdmin();
+  if (!sb) return;
+  const ws = await ensureWorkspace(sb);
+  if (!ws) return;
+
+  const { error } = await sb.from("products").upsert(
+    {
+      id: product.id,
+      workspace_id: ws,
+      founder_id: product.founder_id,
+      name: product.name,
+      domain: product.domain ?? null,
+      oneliner: product.oneliner ?? null,
+      sector: product.sector ?? null,
+      stage: product.stage ?? null,
+      traction_claims: product.traction_claims ?? [],
+    },
+    { onConflict: "workspace_id,id" },
+  );
+  if (error) throw new Error(`[postgres-dual] product: ${error.message}`);
+}
+
+export async function dualWriteScreening(screening: Screening): Promise<void> {
+  const sb = getAdmin();
+  if (!sb) return;
+  const ws = await ensureWorkspace(sb);
+  if (!ws) return;
+
+  const { error } = await sb.from("screen_runs").insert({
+    workspace_id: ws,
+    founder_id: screening.founder_id,
+    product_id: screening.product_id ?? null,
+    founder_axis: screening.founder_axis,
+    market_axis: screening.market_axis,
+    idea_axis: screening.idea_axis,
+    thesis_fit: null,
+    scored_at: screening.scored_at,
+    created_at: screening.scored_at,
+  });
+  if (error) throw new Error(`[postgres-dual] screening: ${error.message}`);
+}
+
+export async function dualWriteMemo(memo: Memo): Promise<void> {
+  const sb = getAdmin();
+  if (!sb) return;
+  const ws = await ensureWorkspace(sb);
+  if (!ws) return;
+
+  const payload = {
+    founder_id: memo.founder_id,
+    product_id: memo.product_id ?? null,
+    decision: memo.decision,
+    decision_conf: memo.decision_conf,
+    sections: memo.sections,
+    claims: memo.claims ?? [],
+    gaps: memo.gaps ?? [],
+    created_at: memo.created_at,
+    memory_id: memo.id,
+  };
+
+  const { data: existing } = await sb
+    .from("memos")
+    .select("id")
+    .eq("workspace_id", ws)
+    .eq("memory_id", memo.id)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { error } = await sb.from("memos").update(payload).eq("id", existing.id);
+    if (error) throw new Error(`[postgres-dual] memo update: ${error.message}`);
+    return;
+  }
+
+  // memos.screen_run_id is required + unique — create a screen_run row to attach.
+  const { data: screen, error: sErr } = await sb
+    .from("screen_runs")
+    .insert({
+      workspace_id: ws,
+      founder_id: memo.founder_id,
+      product_id: memo.product_id ?? null,
+      founder_axis: {
+        score: 0,
+        label: "memo-link",
+        trend: "stable",
+        rationale: "",
+        confidence: 0,
+      },
+      market_axis: {
+        score: 0,
+        label: "memo-link",
+        trend: "stable",
+        rationale: "",
+        confidence: 0,
+      },
+      idea_axis: {
+        score: 0,
+        label: "memo-link",
+        trend: "stable",
+        rationale: "",
+        confidence: 0,
+      },
+      scored_at: memo.created_at,
+      created_at: memo.created_at,
+    })
+    .select("id")
+    .single();
+  if (sErr || !screen?.id) {
+    throw new Error(`[postgres-dual] memo screen_run: ${sErr?.message ?? "no id"}`);
+  }
+
+  const { error } = await sb.from("memos").insert({
+    workspace_id: ws,
+    screen_run_id: screen.id,
+    ...payload,
+  });
+  if (error) throw new Error(`[postgres-dual] memo: ${error.message}`);
+}
+
+export async function dualWriteTrace(step: TraceStep): Promise<void> {
+  const sb = getAdmin();
+  if (!sb) return;
+  const ws = await ensureWorkspace(sb);
+  if (!ws) return;
+
+  const founderId =
+    typeof step.input === "object" &&
+    step.input &&
+    "founder_id" in step.input &&
+    typeof (step.input as { founder_id?: unknown }).founder_id === "string"
+      ? (step.input as { founder_id: string }).founder_id
+      : null;
+
+  const { error } = await sb.from("traces").insert({
+    workspace_id: ws,
+    pipeline_run_id: step.run_id,
+    founder_id: founderId,
+    step: step.step,
+    input: step.input ?? null,
+    output: step.output ?? null,
+    evidence: step.evidence ?? [],
+    ts: step.ts,
+  });
+  if (error) throw new Error(`[postgres-dual] trace: ${error.message}`);
+}
+
+export async function dualWriteThesis(thesis: Thesis): Promise<void> {
+  const sb = getAdmin();
+  if (!sb) return;
+  const ws = await ensureWorkspace(sb);
+  if (!ws) return;
+
+  const { error } = await sb
+    .from("workspaces")
+    .update({ thesis })
+    .eq("id", ws);
+  if (error) throw new Error(`[postgres-dual] thesis: ${error.message}`);
 }
 
 export function isPostgresDualEnabled(): boolean {
@@ -208,17 +378,50 @@ export async function fetchStoreBundleFromPostgres(): Promise<StoreData | null> 
   const ws = await ensureWorkspace(sb);
   if (!ws) return null;
 
-  const [{ data: founders, error: fErr }, { data: products, error: pErr }, { data: signals, error: sErr }] =
-    await Promise.all([
-      sb.from("founders").select("*").eq("workspace_id", ws).order("founder_score", { ascending: false }),
-      sb.from("products").select("*").eq("workspace_id", ws),
-      sb
-        .from("signals")
-        .select("*")
-        .eq("workspace_id", ws)
-        .order("observed_at", { ascending: false })
-        .limit(2000),
-    ]);
+  const [
+    { data: workspace },
+    { data: founders, error: fErr },
+    { data: products, error: pErr },
+    { data: signals, error: sErr },
+    { data: scoreEvents, error: eErr },
+    { data: screenRuns, error: scErr },
+    { data: memos, error: mErr },
+    { data: traces, error: tErr },
+  ] = await Promise.all([
+    sb.from("workspaces").select("thesis").eq("id", ws).maybeSingle(),
+    sb.from("founders").select("*").eq("workspace_id", ws).order("founder_score", { ascending: false }),
+    sb.from("products").select("*").eq("workspace_id", ws),
+    sb
+      .from("signals")
+      .select("*")
+      .eq("workspace_id", ws)
+      .order("observed_at", { ascending: false })
+      .limit(2000),
+    sb
+      .from("founder_score_events")
+      .select("founder_id, score, confidence, at")
+      .eq("workspace_id", ws)
+      .order("at", { ascending: true })
+      .limit(5000),
+    sb
+      .from("screen_runs")
+      .select("*")
+      .eq("workspace_id", ws)
+      .order("created_at", { ascending: true })
+      .limit(500),
+    sb
+      .from("memos")
+      .select("*")
+      .eq("workspace_id", ws)
+      .order("created_at", { ascending: true })
+      .limit(200),
+    sb
+      .from("traces")
+      .select("*")
+      .eq("workspace_id", ws)
+      .order("ts", { ascending: true })
+      .limit(2000),
+  ]);
 
   if (fErr) {
     console.error("[postgres-dual] hydrate founders:", fErr.message);
@@ -226,21 +429,42 @@ export async function fetchStoreBundleFromPostgres(): Promise<StoreData | null> 
   }
   if (pErr) console.error("[postgres-dual] hydrate products:", pErr.message);
   if (sErr) console.error("[postgres-dual] hydrate signals:", sErr.message);
+  if (eErr) console.error("[postgres-dual] hydrate score events:", eErr.message);
+  if (scErr) console.error("[postgres-dual] hydrate screenings:", scErr.message);
+  if (mErr) console.error("[postgres-dual] hydrate memos:", mErr.message);
+  if (tErr) console.error("[postgres-dual] hydrate traces:", tErr.message);
   if (!founders?.length) return null;
+
+  const historyByFounder = new Map<
+    string,
+    Array<{ score: number; confidence: number; at: string; gravity?: number }>
+  >();
+  for (const ev of scoreEvents ?? []) {
+    const fid = ev.founder_id as string;
+    const list = historyByFounder.get(fid) ?? [];
+    list.push({
+      score: Number(ev.score ?? 0),
+      confidence: Number((ev as { confidence?: number }).confidence ?? 0),
+      at: (ev.at as string) ?? new Date().toISOString(),
+    });
+    historyByFounder.set(fid, list);
+  }
 
   const mappedFounders: Founder[] = founders.map((row) => {
     const g = (row.gravity ?? {}) as Founder["gravity"];
+    const history = historyByFounder.get(row.id as string);
     return {
       id: row.id as string,
       name: row.name as string,
       handles: (row.handles ?? {}) as Founder["handles"],
       links: (row.links ?? []) as string[],
       bio: (row.bio as string | null) ?? undefined,
-      claims: [],
+      claims: Array.isArray(row.claims) ? (row.claims as Founder["claims"]) : [],
       founder_score: Number(row.founder_score ?? 0),
       score_confidence: Number(row.score_confidence ?? 0),
       gravity: g && typeof g.gravity_score === "number" ? g : emptyGravity(),
       activation: (row.activation as Founder["activation"]) ?? undefined,
+      score_history: history?.length ? history : undefined,
       created_at: (row.created_at as string) ?? new Date().toISOString(),
       updated_at: (row.updated_at as string) ?? new Date().toISOString(),
     };
@@ -268,13 +492,52 @@ export async function fetchStoreBundleFromPostgres(): Promise<StoreData | null> 
     ingested_at: row.ingested_at as string,
   }));
 
+  const mappedScreenings: Screening[] = (screenRuns ?? [])
+    .filter((row) => {
+      // Skip placeholder rows created only to satisfy memos.screen_run_id FK.
+      const fa = row.founder_axis as { label?: string } | null;
+      return fa?.label !== "memo-link";
+    })
+    .map((row) => ({
+      founder_id: row.founder_id as string,
+      product_id: (row.product_id as string | null) ?? undefined,
+      founder_axis: row.founder_axis as Screening["founder_axis"],
+      market_axis: row.market_axis as Screening["market_axis"],
+      idea_axis: row.idea_axis as Screening["idea_axis"],
+      scored_at:
+        (row.scored_at as string | null) ??
+        (row.created_at as string) ??
+        new Date().toISOString(),
+    }));
+
+  const mappedMemos: Memo[] = (memos ?? []).map((row) => ({
+    id: (row.memory_id as string | null) ?? (row.id as string) ?? randomUUID(),
+    founder_id: row.founder_id as string,
+    product_id: (row.product_id as string | null) ?? undefined,
+    sections: (row.sections as Memo["sections"]) ?? [],
+    decision: row.decision as Memo["decision"],
+    decision_conf: Number(row.decision_conf ?? 0),
+    claims: Array.isArray(row.claims) ? (row.claims as Memo["claims"]) : [],
+    gaps: Array.isArray(row.gaps) ? (row.gaps as string[]) : [],
+    created_at: (row.created_at as string) ?? new Date().toISOString(),
+  }));
+
+  const mappedTraces: TraceStep[] = (traces ?? []).map((row) => ({
+    run_id: row.pipeline_run_id as string,
+    step: row.step as string,
+    input: row.input ?? null,
+    output: row.output ?? null,
+    evidence: Array.isArray(row.evidence) ? (row.evidence as string[]) : [],
+    ts: (row.ts as string) ?? new Date().toISOString(),
+  }));
+
   return {
     founders: mappedFounders,
     products: mappedProducts,
     signals: mappedSignals,
-    thesis: null,
-    screenings: [],
-    memos: [],
-    traces: [],
+    thesis: (workspace?.thesis as Thesis | null) ?? null,
+    screenings: mappedScreenings,
+    memos: mappedMemos,
+    traces: mappedTraces,
   };
 }

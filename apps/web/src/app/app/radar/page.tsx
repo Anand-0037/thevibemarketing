@@ -23,6 +23,11 @@ type RadarFounder = {
   momentum?: number;
   fs_trend?: "improving" | "declining" | "stable";
   activation_status?: string;
+  funnel_clock?: string;
+  within_24h?: boolean;
+  conviction_crossed?: boolean;
+  memo_decision?: string | null;
+  claim_contradictions?: number;
 };
 
 export default function RadarPage() {
@@ -40,10 +45,22 @@ export default function RadarPage() {
     try {
       const qs = new URLSearchParams({ sort });
       if (hideMiss) qs.set("hide_miss", "1");
-      const res = await fetch(`/api/founders?${qs}`);
-      if (!res.ok) throw new Error("Failed to load founders");
-      const data = (await res.json()) as { founders: RadarFounder[] };
-      setFounders(data.founders);
+      const res = await fetch(`/api/founders?${qs}`, {
+        credentials: "include",
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        founders?: RadarFounder[];
+        error?: string;
+      };
+      if (res.status === 401) {
+        throw new Error("Your session expired. Sign in again.");
+      }
+      if (!res.ok) {
+        throw new Error(
+          body.error || `Could not load founders (${res.status})`,
+        );
+      }
+      setFounders(body.founders ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
       setFounders([]);
@@ -65,6 +82,7 @@ export default function RadarPage() {
       const data = (await res.json()) as {
         error?: string;
         upserted_count?: number;
+        auto_screened_count?: number;
         note?: string;
         sources?: {
           github?: { count: number };
@@ -77,8 +95,19 @@ export default function RadarPage() {
       };
       if (!res.ok) throw new Error(data.error || "Ingest failed");
       const s = data.sources;
+      const auto =
+        data.auto_screened_count && data.auto_screened_count > 0
+          ? ` · auto-screened ${data.auto_screened_count}`
+          : "";
       setStatus(
-        `Identify — GH ${s?.github?.count ?? "?"} · HN ${s?.hackernews?.count ?? "?"} · arXiv ${s?.arxiv?.count ?? "?"} → ${data.upserted_count ?? 0} candidates${data.note ? ` · ${data.note}` : ""}`,
+        [
+          `Identify — live GH ${s?.github?.count ?? "?"} · HN ${s?.hackernews?.count ?? "?"} · arXiv ${s?.arxiv?.count ?? "?"}`,
+          `→ ${data.upserted_count ?? 0} candidates${auto}`,
+          `PH ${s?.producthunt?.count ?? 0} · accel ${s?.accelerator?.count ?? 0} · hackathon ${s?.hackathon?.count ?? 0} (not configured — never fabricated)`,
+          data.note,
+        ]
+          .filter(Boolean)
+          .join(" · "),
       );
       await load();
     } catch (e) {
@@ -181,9 +210,14 @@ export default function RadarPage() {
       </div>
 
       {error ? (
-        <p className="mt-4 text-sm text-danger" role="alert">
-          {error}
-        </p>
+        <div className="mt-4 space-y-2" role="alert">
+          <p className="text-sm text-danger">{error}</p>
+          {/sign in|session|401|unauthorized/i.test(error) ? (
+            <Link href="/login?next=/app/radar" className="text-sm text-accent hover:underline">
+              Sign in →
+            </Link>
+          ) : null}
+        </div>
       ) : null}
       {status ? (
         <p
@@ -263,6 +297,34 @@ export default function RadarPage() {
                           Activate · {f.activation_status}
                         </span>
                       ) : null}
+                      {f.conviction_crossed ? (
+                        <span className="border border-accent/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
+                          Conviction
+                        </span>
+                      ) : null}
+                      {f.memo_decision ? (
+                        <span className="font-mono text-[10px] uppercase text-muted">
+                          $100K {f.memo_decision}
+                        </span>
+                      ) : null}
+                      {(f.claim_contradictions ?? 0) > 0 ? (
+                        <span
+                          className="border border-danger/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-danger"
+                          title="Per-claim Trust contradictions in Memory"
+                        >
+                          Trust !{f.claim_contradictions}
+                        </span>
+                      ) : null}
+                      {f.funnel_clock ? (
+                        <span
+                          className={`font-mono text-[10px] uppercase ${
+                            f.within_24h ? "text-ok" : "text-warn"
+                          }`}
+                          title="Hours since first Memory write — 24h decision SLA clock"
+                        >
+                          {f.funnel_clock}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-1 truncate text-sm text-muted">
                       {f.product?.name ?? "No product"}
@@ -286,12 +348,21 @@ export default function RadarPage() {
                     </div>
                     {f.screening ? (
                       <p className="font-mono text-[10px] tabular-nums text-muted">
-                        F{f.screening.founder_axis.score.toFixed(0)} · M
-                        {f.screening.market_axis.score.toFixed(0)}
-                        {f.screening.market_axis.stance
+                        F
+                        {Number.isFinite(f.screening.founder_axis?.score)
+                          ? f.screening.founder_axis.score.toFixed(0)
+                          : "—"}{" "}
+                        · M
+                        {Number.isFinite(f.screening.market_axis?.score)
+                          ? f.screening.market_axis.score.toFixed(0)
+                          : "—"}
+                        {f.screening.market_axis?.stance
                           ? ` (${f.screening.market_axis.stance})`
                           : ""}{" "}
-                        · I{f.screening.idea_axis.score.toFixed(0)}
+                        · I
+                        {Number.isFinite(f.screening.idea_axis?.score)
+                          ? f.screening.idea_axis.score.toFixed(0)
+                          : "—"}
                       </p>
                     ) : null}
                   </div>

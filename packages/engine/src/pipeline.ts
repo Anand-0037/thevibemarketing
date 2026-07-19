@@ -4,6 +4,9 @@ import {
 } from "./agents/lanes";
 import { buildMemo } from "./memo/build";
 import type { MemoryStore } from "./memory/store";
+import { executeAutomatedDiligence } from "./pipeline/diligence";
+import { runDeepResearch } from "./research/deep-research";
+import type { ResearchDossier } from "./research/types";
 import { screenAxes } from "./scoring/axes";
 import { firstPassScreen, type FirstPassResult } from "./scoring/first-pass";
 import { composeFounderScoreFromGravity } from "./scoring/founder-score";
@@ -25,6 +28,7 @@ export type PipelineResult = {
   first_pass: FirstPassResult;
   validator: { flags: string[]; corrected: boolean };
   agents?: AgentFleetResult;
+  research?: ResearchDossier;
 };
 
 /**
@@ -136,7 +140,31 @@ export async function runVcBrainPipeline(
     );
   }
 
-  // Re-load signals after lane merges.
+  // Deep research orchestration — multi-search → cite-bound synthesis → dossier.
+  let research: ResearchDossier | undefined;
+  try {
+    const signalsForResearch = await store.getSignalsFor(founderId);
+    research = await runDeepResearch({
+      founder,
+      product,
+      signals: signalsForResearch,
+      run_id,
+      store,
+      budgetMs: Number(process.env.DEEP_RESEARCH_TIMEOUT_MS) || 55_000,
+      maxScrapes: Number(process.env.DEEP_RESEARCH_MAX_SCRAPES) || 3,
+    });
+  } catch (e) {
+    await step(
+      run_id,
+      "deep_research_synthesize",
+      { founder_id: founderId },
+      { ok: false },
+      [e instanceof Error ? e.message : "deep research failed"],
+      store,
+    );
+  }
+
+  // Re-load signals after lane + research merges.
   const signalsAfter = await store.getSignalsFor(founderId);
   const gravity = scoreGravityFromSignals(signalsAfter);
   const sources = new Set(signalsAfter.map((s) => s.source)).size;
@@ -188,7 +216,7 @@ export async function runVcBrainPipeline(
   );
 
   const validation = validateClaims(evaluated, signalsAfter, product);
-  const claims = validation.validated;
+  let claims = validation.validated;
 
   await step(
     run_id,
@@ -205,8 +233,74 @@ export async function runVcBrainPipeline(
     store,
   );
 
+  // URL diligence — verify claims that cite http(s) evidence (max 3, best-effort).
+  const urlCandidates = claims
+    .filter((c) => c.evidence_url && /^https?:\/\//i.test(c.evidence_url))
+    .slice(0, 3);
+  if (urlCandidates.length > 0) {
+    try {
+      const ledger = await executeAutomatedDiligence(
+        urlCandidates.map((c, i) => ({
+          id: `c${i}`,
+          assertionText: c.text,
+          claimedSourceUrl: c.evidence_url!,
+        })),
+      );
+      const byText = new Map(
+        urlCandidates.map((c, i) => [c.text, ledger[i]!]),
+      );
+      claims = claims.map((c) => {
+        const rec = byText.get(c.text);
+        if (!rec) return c;
+        if (!rec.isValidated) {
+          return {
+            ...c,
+            confidence: Math.min(c.confidence, 0.35),
+            contradiction: true,
+            contradiction_note:
+              c.contradiction_note ??
+              `URL diligence: source does not support claim — ${rec.extractedProofSnippet.slice(0, 160)}`,
+          };
+        }
+        return {
+          ...c,
+          confidence: Math.max(c.confidence, Math.min(0.9, rec.confidenceBand)),
+        };
+      });
+      await step(
+        run_id,
+        "url_diligence",
+        { checked: ledger.length },
+        {
+          validated: ledger.filter((r) => r.isValidated).length,
+          failed: ledger.filter((r) => !r.isValidated).length,
+        },
+        ledger.map(
+          (r) =>
+            `${r.isValidated ? "OK" : "FAIL"} ${r.sourceUrl}: ${r.extractedProofSnippet.slice(0, 120)}`,
+        ),
+        store,
+      );
+    } catch (e) {
+      await step(
+        run_id,
+        "url_diligence",
+        { checked: urlCandidates.length },
+        { ok: false },
+        [e instanceof Error ? e.message : "url diligence failed"],
+        store,
+      );
+    }
+  }
+
+  // Persist evaluated claims on the founder (Memory never forgets Trust state).
+  const withClaims = await store.upsertFounder({
+    ...updated,
+    claims,
+  });
+
   const screening = screenAxes({
-    founder: updated,
+    founder: withClaims,
     product,
     thesis: activeThesis,
     history,
@@ -228,11 +322,20 @@ export async function runVcBrainPipeline(
   );
 
   const memo = buildMemo({
-    founder: updated,
+    founder: withClaims,
     product,
     screening,
     thesis: activeThesis,
     claims,
+    research: research
+      ? {
+          findings: research.findings,
+          open_questions: research.open_questions,
+          synthesis: research.synthesis,
+          partial: research.partial,
+          provider_status: research.provider_status,
+        }
+      : null,
   });
   await store.saveMemo(memo);
 
@@ -244,6 +347,8 @@ export async function runVcBrainPipeline(
       decision: memo.decision,
       decision_conf: memo.decision_conf,
       gaps: memo.gaps,
+      research_findings: research?.findings.length ?? 0,
+      research_partial: research?.partial ?? null,
     },
     [`$100K decision: ${memo.decision}`, ...memo.gaps.slice(0, 3)],
     store,
@@ -251,7 +356,7 @@ export async function runVcBrainPipeline(
 
   return {
     run_id,
-    founder: updated,
+    founder: withClaims,
     product,
     screening,
     memo,
@@ -262,5 +367,6 @@ export async function runVcBrainPipeline(
       corrected: validation.corrected,
     },
     agents,
+    research,
   };
 }

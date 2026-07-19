@@ -19,7 +19,7 @@ const DEFAULT_CONNECTORS: Connector[] = [
   { name: "Hacker News", status: "live_key" },
   { name: "GitHub", status: "live_key" },
   { name: "arXiv", status: "live_key" },
-  { name: "Product Hunt", status: "catalog" },
+  { name: "Product Hunt", status: "soon" },
   { name: "Substack", status: "soon" },
   { name: "Slack", status: "soon" },
 ];

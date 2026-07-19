@@ -28,10 +28,12 @@ export function firstPassScreen(input: {
   });
   if (!hasCompany) reasons.push("Company name required");
 
+  const links = founder.links ?? [];
+  const claims = founder.claims ?? [];
   const hasDeck =
     Boolean(product?.domain) ||
-    founder.links.some((l) => /deck|pitch|doc|notion|drive|dropbox|pdf/i.test(l)) ||
-    founder.claims.some((c) => /deck/i.test(c.text));
+    links.some((l) => /deck|pitch|doc|notion|drive|dropbox|pdf/i.test(l)) ||
+    claims.some((c) => /deck/i.test(c.text));
   checks.push({
     name: "deck_or_materials",
     ok: hasDeck || !requireDeck,
@@ -77,8 +79,8 @@ export function firstPassScreen(input: {
   }
 
   const thin =
-    Boolean(founder.gravity.abstain) &&
-    founder.claims.length === 0 &&
+    Boolean(founder.gravity?.abstain) &&
+    claims.length === 0 &&
     (product?.traction_claims?.length ?? 0) === 0 &&
     founder.founder_score < 15;
   checks.push({

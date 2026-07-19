@@ -3,12 +3,30 @@
 import { useEffect, useState } from "react";
 
 const TOOLKITS = [
-  { id: "github", label: "GitHub", note: "OAuth via Composio — good first connect test" },
+  {
+    id: "reddit",
+    label: "Reddit",
+    note: "Easiest founder channel — drafts live in Studio; OAuth connect here; approve → queue until post ID returns",
+    priority: true,
+  },
   { id: "twitter", label: "X (Twitter)", note: "Publish + engage · poll for mentions" },
-  { id: "linkedin", label: "LinkedIn", note: "Posts · no inbound triggers" },
-  { id: "reddit", label: "Reddit", note: "Opportunity replies · HITL required" },
+  { id: "linkedin", label: "LinkedIn", note: "Company + personal posts · HITL required" },
+  { id: "github", label: "GitHub", note: "OAuth via Composio — good first connect test" },
   { id: "gmail", label: "Gmail", note: "Outbound activate emails" },
   { id: "notion", label: "Notion", note: "Brand docs / memo export" },
+] as const;
+
+const COMING_SOON = [
+  {
+    id: "google_business",
+    label: "Google Business Profile",
+    note: "Local / MSME posts & updates — planned; not wired yet (no fake publish)",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    note: "Coming soon",
+  },
 ] as const;
 
 type HealthKey = {
@@ -56,7 +74,7 @@ export default function AppConnectorsPage() {
       const res = await fetch("/api/composio/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toolkit, userId: "default_user" }),
+        body: JSON.stringify({ toolkit }),
       });
       const data = (await res.json()) as {
         status?: string;
@@ -128,10 +146,26 @@ export default function AppConnectorsPage() {
         Connect accounts
       </h1>
       <p className="mt-2 max-w-xl text-sm text-muted">
-        Live Composio OAuth when the API key is valid — real{" "}
-        <span className="text-ink">connect.composio.dev</span> links, never a fake
-        window. Social has no inbound webhooks; loops poll on a schedule.
+        Connect Reddit first for founder/MSME drafts — then X and LinkedIn. Live
+        Composio OAuth when the API key is green (
+        <span className="text-ink">connect.composio.dev</span>
+        ). Approve still{" "}
+        <span className="text-ink">queues</span> until a provider returns a post
+        ID — we never fake publish.
       </p>
+
+      <div className="panel mt-4 border-accent/30 p-3 text-xs text-muted">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-accent">
+          Reddit readiness
+        </p>
+        <p className="mt-1">
+          Studio already drafts Reddit posts. Connect below when Composio is{" "}
+          <span className={composioOk ? "text-ok" : "text-warn"}>
+            {composioOk ? "PASS" : "not ready"}
+          </span>
+          . HITL approve → queued (not published) until execute returns an ID.
+        </p>
+      </div>
 
       {health ? (
         <div className="panel mt-6 p-4">
@@ -156,8 +190,8 @@ export default function AppConnectorsPage() {
           ) : null}
           {e2b && !e2b.ok ? (
             <p className="mt-3 text-xs text-warn">
-              E2B: paste Team API key (e2b_…) into .env, then re-run{" "}
-              <span className="font-mono">pnpm probe:keys</span>.
+              Sandboxed code runs are not configured yet (coming soon for this
+              workspace).
             </p>
           ) : null}
         </div>
@@ -174,6 +208,11 @@ export default function AppConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-display font-semibold">{t.label}</p>
+                {"priority" in t && t.priority ? (
+                  <span className="border border-accent/40 px-1.5 py-0.5 font-mono text-[10px] uppercase text-accent">
+                    Start here
+                  </span>
+                ) : null}
                 <span
                   className={`font-mono text-[10px] uppercase tracking-wider ${
                     composioOk ? "text-ok" : "text-warn"
@@ -232,6 +271,25 @@ export default function AppConnectorsPage() {
           </ul>
         </div>
       ) : null}
+
+      <section className="mt-10" aria-label="Coming soon">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
+          Coming soon
+        </p>
+        <ul className="mt-3 space-y-2">
+          {COMING_SOON.map((t) => (
+            <li key={t.id} className="panel p-4 opacity-80">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-display font-semibold">{t.label}</p>
+                <span className="font-mono text-[10px] uppercase text-muted">
+                  Not wired
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-muted">{t.note}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <p className="mt-6 text-xs text-muted">
         Substack / Medium: no Composio toolkit yet. Product Hunt / accelerator /

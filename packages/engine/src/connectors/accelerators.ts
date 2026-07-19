@@ -19,8 +19,3 @@ export function fetchAcceleratorCohorts(): SourceFetchResult {
     status: 501,
   };
 }
-
-/** @deprecated Use fetchAcceleratorCohorts — always empty. */
-export function loadAcceleratorCohorts(): NormalizedIngestItem[] {
-  return [];
-}

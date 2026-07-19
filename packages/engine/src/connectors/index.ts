@@ -13,19 +13,10 @@ export {
   type GithubSearchResult,
 } from "./github";
 export { fetchShowHn, fetchShowHnDetailed, searchHnStories } from "./hackernews";
-export {
-  fetchProductHuntLaunches,
-  loadCuratedLaunches,
-} from "./producthunt";
+export { fetchProductHuntLaunches } from "./producthunt";
 export { fetchArxivAi, fetchArxivAiDetailed } from "./arxiv";
-export {
-  fetchAcceleratorCohorts,
-  loadAcceleratorCohorts,
-} from "./accelerators";
-export {
-  fetchHackathonWinners,
-  loadHackathonWinners,
-} from "./hackathons";
+export { fetchAcceleratorCohorts } from "./accelerators";
+export { fetchHackathonWinners } from "./hackathons";
 export {
   ingestAllSources,
   ingestAllSourcesDetailed,

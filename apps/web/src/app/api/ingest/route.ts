@@ -1,7 +1,9 @@
 import {
   coherenceFromSignals,
   composeFounderScoreFromGravity,
+  evaluateConviction,
   ingestAsFounderDrafts,
+  runVcBrainPipeline,
   scoreGravityFromSignals,
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
@@ -10,15 +12,22 @@ import { withOwnedStore } from "@/lib/with-store";
 
 export const runtime = "nodejs";
 
+/** Max auto-screens per Identify refresh — keeps demo latency sane. */
+const AUTO_SCREEN_CAP = 2;
+
 /**
  * POST /api/ingest — live GitHub + HN + arXiv only.
  * Product Hunt / accelerators / hackathons → not configured (zero rows).
  * Discovered authors are candidates — not auto-verified founders.
+ *
+ * Conviction path: when gravity / Founder Score crosses threshold and thesis
+ * is not a hard miss, auto-run the 3-axis pipeline (brief: fund that runs itself).
  */
 export async function POST(req: Request) {
   return withOwnedStore(async () => {
     const url = new URL(req.url);
     const dry = url.searchParams.get("dry") === "1";
+    const autoScreen = url.searchParams.get("auto_screen") !== "0";
     const limit = Math.min(
       40,
       Math.max(1, Number(url.searchParams.get("limit") || 20) || 20),
@@ -61,12 +70,16 @@ export async function POST(req: Request) {
       }
 
       const store = getStore();
+      const thesis = await store.getThesis();
       const upserted: Array<{
         id: string;
         name: string;
         founder_score: number;
         gravity: number;
         identity: "candidate";
+        conviction_crossed?: boolean;
+        auto_screened?: boolean;
+        decision?: string;
       }> = [];
 
       for (const draft of selected) {
@@ -75,7 +88,7 @@ export async function POST(req: Request) {
           founder_score: draft.founder.founder_score ?? 0,
           score_confidence: draft.founder.score_confidence ?? 0,
         });
-        await store.upsertProduct({
+        const product = await store.upsertProduct({
           ...draft.product,
           founder_id: founder.id,
           id:
@@ -112,17 +125,63 @@ export async function POST(req: Request) {
           score_confidence: score.score_confidence,
           gravity,
         });
+
+        const prior = await store.getLatestScreening(updated.id);
+        const conviction = evaluateConviction({
+          founder: updated,
+          product,
+          thesis,
+          alreadyScreened: Boolean(prior),
+        });
+
         upserted.push({
           id: updated.id,
           name: updated.name,
           founder_score: updated.founder_score,
           gravity: gravity.gravity_score,
           identity: "candidate",
+          conviction_crossed: conviction.crossed,
         });
       }
 
       const dedupe = await store.dedupeFounders();
       upserted.sort((a, b) => b.founder_score - a.founder_score);
+
+      const autoScreened: Array<{
+        id: string;
+        decision: string;
+        reasons: string[];
+      }> = [];
+
+      if (autoScreen) {
+        const candidates = upserted
+          .filter((u) => u.conviction_crossed)
+          .slice(0, AUTO_SCREEN_CAP);
+
+        for (const c of candidates) {
+          try {
+            const result = await runVcBrainPipeline(store, c.id);
+            const row = upserted.find((u) => u.id === c.id);
+            if (row) {
+              row.auto_screened = true;
+              row.decision = result.memo.decision;
+            }
+            const conv = evaluateConviction({
+              founder: result.founder,
+              product: result.product,
+              thesis,
+              alreadyScreened: false,
+            });
+            autoScreened.push({
+              id: c.id,
+              decision: result.memo.decision,
+              reasons: conv.reasons,
+            });
+          } catch (e) {
+            console.error("[ingest] auto-screen", c.id, e);
+          }
+        }
+      }
 
       return NextResponse.json({
         ok: upserted.length > 0,
@@ -131,7 +190,12 @@ export async function POST(req: Request) {
         item_count: items.length,
         upserted_count: upserted.length,
         dedupe,
-        note: "Identify upserts discovered candidates from live sources only.",
+        auto_screened: autoScreened,
+        auto_screened_count: autoScreened.length,
+        note:
+          autoScreened.length > 0
+            ? `Identify + conviction auto-screened ${autoScreened.length} founder(s) (cap ${AUTO_SCREEN_CAP}).`
+            : "Identify upserts discovered candidates from live sources only.",
         upserted,
       });
     } catch (e) {
@@ -145,6 +209,6 @@ export async function POST(req: Request) {
 
 export async function GET() {
   return NextResponse.json({
-    tip: "POST /api/ingest — live GitHub+HN+arXiv only. Unavailable sources return 0 rows.",
+    tip: "POST /api/ingest — live GitHub+HN+arXiv. ?auto_screen=0 to disable conviction auto-screen.",
   });
 }

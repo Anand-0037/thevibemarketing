@@ -144,6 +144,20 @@ export function evaluateClaims(
     let contradiction_note = raw.contradiction_note;
     let confidence = raw.confidence ?? 0.55;
 
+    // Labeled Diligence probe — always contradict so Trust → $100K NO
+    // is demoable on any live founder (high-star or thin-signal).
+    if (/^diligence probe:/i.test(text.trim())) {
+      return {
+        text,
+        category: raw.category || 'traction',
+        evidence_url: raw.evidence_url,
+        confidence: clamp01(Math.min(confidence, 0.2)),
+        contradiction: true,
+        contradiction_note:
+          "Labeled Diligence probe: overstated traction claim inserted for Trust verification — not the founder's own statement",
+      };
+    }
+
     if (metrics.users !== undefined && metrics.users >= 5_000 && stars > 0 && stars < 100) {
       contradiction = true;
       contradiction_note =

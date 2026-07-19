@@ -1,24 +1,40 @@
 /** Canonical site identity — SEO / AEO / social share source of truth. */
 
-import { DOGFOOD_OPERATOR } from "@/content/dogfood-operator";
+// Relative import — next.config and some tooling resolve this more reliably than `@/`.
+import { DOGFOOD_OPERATOR } from "../content/dogfood-operator";
 
 export const SITE_NAME = "vibemarketer";
+/** Apex brand domain (marketing). */
 export const SITE_DOMAIN = "vibemarketer.fun";
+/** Canonical production host — keep auth cookies on one host. */
+export const SITE_CANONICAL_HOST = "www.vibemarketer.fun";
+export const SITE_CANONICAL_URL = `https://${SITE_CANONICAL_HOST}`;
+
 export const SITE_TAGLINE =
-  "Autonomous AI Agent Fleet for your Marketing Department. Operates 24/365.";
+  "Paste your product URL. Get a brand brief, campaign plan, and drafts you approve.";
 export const SITE_DESCRIPTION =
-  "Cursor for marketing — an autonomous AI agent fleet that runs strategy, content, distribution, SEO/AEO, and learning loops for SaaS founders. Same engine powers VC Brain founder sourcing.";
+  "Cursor for marketing — brand brief, seven-day campaigns, and approval-gated drafts for SaaS founders. Same engine powers VC Brain founder sourcing.";
+
+function normalizeBase(raw: string): string {
+  let base = raw.trim().replace(/\/$/, "");
+  // Collapse apex → www so auth/cookies stay consistent.
+  if (base === "https://vibemarketer.fun" || base === "http://vibemarketer.fun") {
+    base = SITE_CANONICAL_URL;
+  }
+  return base;
+}
 
 export function siteUrl(path = ""): string {
-  const base = (
-    process.env.NEXT_PUBLIC_SITE_URL || `https://${SITE_DOMAIN}`
-  ).replace(/\/$/, "");
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const base = normalizeBase(fromEnv || SITE_CANONICAL_URL);
   if (!path) return base;
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+export { assertProductionSiteUrl } from "./assert-site-url";
+
 export const SITE_EMAIL =
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL || DOGFOOD_OPERATOR.email;
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "hello@vibemarketer.fun";
 
 /** Booking URL — Calendly for Anand, or env override. Bare cal.com ignored. */
 export const CAL_URL = (() => {
@@ -80,3 +96,8 @@ export const KEYWORDS = [
   "Reddit marketing for SaaS",
   "Product Hunt launch agents",
 ] as const;
+
+/** Google OAuth button — only when Supabase Google provider is enabled. */
+export function isGoogleOAuthEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_GOOGLE_OAUTH === "1";
+}

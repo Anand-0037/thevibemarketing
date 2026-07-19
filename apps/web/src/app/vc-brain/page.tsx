@@ -7,7 +7,7 @@ export const metadata: Metadata = pageMetadata({
   title: "VC Brain",
   path: "/vc-brain",
   description:
-    "Distribution-native founder sourcing — Identify/Activate/Converge, 3-axis Screening, Diligence Trust Scores, $100K Decision in 24h.",
+    "Distribution-native founder sourcing — Identify, 3-axis Screening, Diligence Trust Scores, $100K decision-support in 24 hours.",
   keywords: [
     "VC Brain",
     "founder sourcing",
@@ -17,23 +17,22 @@ export const metadata: Metadata = pageMetadata({
   ],
 });
 
-/** Brief pipeline stages — Sourcing → Screening → Diligence → Decision. */
 const FLOW = [
   {
     t: "Sourcing",
-    d: "Identify: GitHub · launches · hackathons · papers · accelerators. Activate cold outreach → Converge into one funnel with inbound.",
+    d: "Identify live: GitHub · Hacker News · arXiv. Hackathons / Product Hunt / accelerators: coming soon (never fabricated). Activate → Converge into one funnel with inbound.",
   },
   {
     t: "Screening",
-    d: "First-pass gate · 3 axes never averaged (Founder / Market / Idea-vs-Market) · thesis lens · persistent Founder Score.",
+    d: "First-pass gate · 3 axes never averaged (Founder / Market / Idea-vs-Market) · thesis lens · persistent Founder Score with cold-start mode.",
   },
   {
     t: "Diligence",
-    d: "Per-claim Trust Score · contradiction flags · validator self-check before the investor sees the memo.",
+    d: "Per-claim Trust Score · contradiction flags · URL verify when evidence links exist · validator before the memo.",
   },
   {
     t: "Decision",
-    d: "Evidence memo + gaps + $100K yes/no/watch · full agent traces.",
+    d: "Evidence memo + gaps + $100K yes/no/watch (decision-support, not an investment offer) · full agent traces.",
   },
 ] as const;
 
@@ -42,24 +41,26 @@ export default function VcBrainPage() {
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <div className="grid items-start gap-10 lg:grid-cols-2">
         <div className="rise">
-          <p className="section-label mb-3">Feature · founder sourcing</p>
+          <p className="section-label mb-3">
+            Hack-Nation · Challenge 02 · Maschmeyer Group
+          </p>
           <h1 className="font-display text-5xl font-bold tracking-tight">
             VC Brain
           </h1>
           <p className="mt-4 max-w-xl text-lg text-muted">
             Find exceptional founders before they fundraise — scored by{" "}
             <span className="text-ink">distribution gravity</span>, not pedigree.
-            Deploy a $100K check in 24 hours.
+            A human investor gets a $100K decision-support memo within 24 hours.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/app/radar" className="btn-primary focus-ring">
               Open radar
             </Link>
-            <Link href="/app/compare" className="btn-ghost focus-ring">
-              Gravity compare
+            <Link href="/demo" className="btn-ghost focus-ring">
+              Judge demo path
             </Link>
-            <Link href="/get-started" className="btn-ghost focus-ring">
-              Get started
+            <Link href="/app/thesis" className="btn-ghost focus-ring">
+              Thesis engine
             </Link>
           </div>
         </div>
@@ -84,7 +85,7 @@ export default function VcBrainPage() {
             <Link href="/app/radar" className="text-accent hover:underline">
               Open radar
             </Link>{" "}
-            — refresh live GitHub + HN, or load samples to explore scoring
+            — Identify · refresh for live GitHub + HN + arXiv signals
           </li>
           <li>
             <Link href="/app/compare" className="text-accent hover:underline">
@@ -93,7 +94,8 @@ export default function VcBrainPage() {
             — cold-start distribution vs quiet pedigree on the same thesis
           </li>
           <li>
-            Screen a founder → evidence memo + $100K decision · open traces
+            Diligence probe claim → Screen → evidence memo for a $100K
+            decision-support check (not an investment offer)
           </li>
         </ol>
       </section>
@@ -103,8 +105,8 @@ export default function VcBrainPage() {
           Same engine as the marketing fleet
         </h2>
         <p className="mt-3 text-muted">
-          Ingest → memory → reason with evidence → act. Marketing posts; VC Brain
-          writes investment memos. One core, swappable heads.
+          vibemarketer manufactures distribution. VC Brain measures it to source
+          founders. Shared spine: ingest → memory → reason → trace.
         </p>
       </section>
     </div>
