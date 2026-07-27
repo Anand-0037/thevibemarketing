@@ -979,6 +979,36 @@ async function clearOwner(ownerId: string): Promise<void> {
       const ownerId = `owner-${randomBytes(5).toString("hex")}`;
       owners.push(ownerId);
       const repo = new InMemoryPublishAttemptRepository();
+      const post = await seedPost(ownerId, "Unknown provider outcome draft");
+      await queuePostForOwner(ownerId, post.id);
+      const created = await createPublishAttemptForPost(
+        {
+          ownerId,
+          post,
+          connectedAccountId: "acct-1",
+        },
+        { repo },
+      );
+
+      await repo.markOutcomeUnknown(created.attempt.id);
+
+      let thrown: MarketingStoreError | null = null;
+      try {
+        await reconcilePublishAttempt(ownerId, created.attempt.id, "retry_publish", {
+          repo,
+        });
+      } catch (error) {
+        thrown = error as MarketingStoreError;
+      }
+      const outcomeUnknownCode: MarketingStoreError["code"] = "OUTCOME_UNKNOWN";
+      assert.equal(thrown?.code, outcomeUnknownCode);
+      assert.equal(thrown?.status, 409);
+    }
+
+    {
+      const ownerId = `owner-${randomBytes(5).toString("hex")}`;
+      owners.push(ownerId);
+      const repo = new InMemoryPublishAttemptRepository();
       const post = await seedPost(ownerId, "Reconcile invalid provider id draft");
       await queuePostForOwner(ownerId, post.id);
       const created = await createPublishAttemptForPost(

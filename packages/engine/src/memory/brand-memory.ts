@@ -275,7 +275,6 @@ export async function syncBrandMemory(
   if (!isSupermemoryConfigured()) {
     return {
       configured: false,
-      live: false,
       containerTag,
       factsOk: false,
       documentOk: false,
@@ -418,6 +417,7 @@ export async function recallBrandMemory(opts: {
   if (!isSupermemoryConfigured()) {
     return {
       configured: false,
+      live: false,
       containerTag,
       task,
       profile: {

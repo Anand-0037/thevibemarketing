@@ -335,7 +335,7 @@ export default function OnboardingPage() {
                 onClick={() => void autoDraft()}
                 disabled={busy}
               >
-                {phase === "drafting" ? "Retrying drafts…" : "Retry first drafts"}
+                Retry first drafts
               </button>
             )}
           </div>

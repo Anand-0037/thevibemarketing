@@ -176,7 +176,8 @@ export class MarketingStoreError extends Error {
       | "POST_NOT_FOUND"
       | "POST_PROVIDER_ID_REQUIRED"
       | "POST_PROVIDER_ID_INVALID"
-      | "POST_PROVIDER_CONFLICT",
+      | "POST_PROVIDER_CONFLICT"
+      | "OUTCOME_UNKNOWN",
     public readonly status: number = 503,
   ) {
     super(message);
