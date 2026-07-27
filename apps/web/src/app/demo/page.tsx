@@ -1,99 +1,129 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { AuthAwareActions } from "@/components/AuthAwareCta";
+import { JsonLd } from "@/components/JsonLd";
 import {
   MarketingPageHero,
   MarketingSection,
   MarketingStepList,
 } from "@/components/MarketingPage";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, itemListJsonLd, pageMetadata, webPageJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Judge demo path",
+  title: "Product tour",
   path: "/demo",
   description:
-    "Hack-Nation Challenge 02 demo — Identify, gravity, Trust contradiction, $100K memo, agent trace.",
+    "Walk vibemarketer in minutes: paste URL → brand memory → drafts → HITL queue.",
 });
 
 const BEATS = [
   {
     n: "01",
-    title: "Identify founders (live)",
+    title: "Paste product URL",
     detail:
-      "Sign in → Radar → Identify · refresh. Live GitHub, Hacker News, arXiv only. Empty until you ingest is correct.",
-    href: "/app/radar",
-    cta: "Open radar",
+      "Onboarding scrapes your site, builds brand memory, and starts first drafts when the model is live.",
+    href: "/app/onboarding",
+    cta: "Onboarding",
   },
   {
     n: "02",
-    title: "Gravity compare",
+    title: "CMO desk",
     detail:
-      "Top two founders by distribution gravity — earned pull vs quiet pedigree. Cold-start builders can outrank quiet pedigrees.",
-    href: "/app/compare",
-    cta: "Open compare",
+      "Daily plan, agents feed, site health scores, competitors, and chat — marketing primary.",
+    href: "/app/cmo",
+    cta: "Open CMO desk",
   },
   {
     n: "03",
-    title: "Profile socials → Gather & screen",
+    title: "Run agents",
     detail:
-      "Open a founder → Edit profile (GitHub · site · X · LinkedIn) → Gather & screen. Agents pull public web via Tavily · Firecrawl · GitHub · E2B, then Trust + three axes.",
-    href: "/app/radar",
-    cta: "Pick a founder",
+      "Studio: Reddit, HN, SEO, or three channel drafts — all require a live model; nothing is faked.",
+    href: "/app/studio",
+    cta: "Studio",
   },
   {
     n: "04",
-    title: "$100K memo + agent trace",
+    title: "Approve before publish",
     detail:
-      "Open memo → decision-support YES/NO/WATCH with gaps first. Open agent trace for profile_enrich · deep_research · url_diligence steps.",
-    href: "/app/radar",
-    cta: "From founder → memo",
-  },
-  {
-    n: "05",
-    title: "Thesis + NL query + Activate",
-    detail:
-      "Configurable thesis · compound NL query · Activate draft outreach → Converge into the same funnel as inbound apply.",
-    href: "/app/thesis",
-    cta: "Thesis engine",
+      "Queue: edit, approve (queues for provider), or reject. Live post links only after a real provider ID.",
+    href: "/app/queue",
+    cta: "HITL queue",
   },
 ] as const;
 
 export default function DemoTourPage() {
   return (
     <>
+      <JsonLd
+        data={[
+          webPageJsonLd({
+            name: "vibemarketer product tour",
+            path: "/demo",
+            description:
+              "A four-step tour of the vibemarketer marketing loop: paste URL, build brand memory, run agents, and approve before publish.",
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Product tour", path: "/demo" },
+          ]),
+          itemListJsonLd({
+            name: "vibemarketer product tour steps",
+            path: "/demo",
+            items: BEATS.map((beat) => ({
+              name: beat.title,
+              path: beat.href,
+              description: beat.detail,
+            })),
+          }),
+        ]}
+      />
       <MarketingPageHero
         narrow
-        label="Hack-Nation · Challenge 02"
-        title="Judge demo path (~5 min)"
+        label="Product tour"
+        title="See the marketing loop"
         lead={
           <>
-            Live founders only — no synthetic cast. Press{" "}
+            Four steps from brand URL to approval-gated drafts. Press{" "}
             <kbd className="border border-line px-1.5 py-0.5 font-mono text-xs text-accent">
               ⌘K
             </kbd>{" "}
-            inside the app for shortcuts. Record Radar → Compare → Gather &amp;
-            screen → Memo → Trace.
+            inside the app for shortcuts.
           </>
         }
+        actionsHint="Tour starts at the CMO desk"
         actions={
           <>
-            <Link href="/app/radar" className="btn-primary focus-ring text-base">
-              Start at radar
-            </Link>
-            <Link href="/vc-brain" className="btn-ghost focus-ring text-base">
-              VC Brain overview
-            </Link>
+            <AuthAwareActions
+              guest={{
+                href: "/app/cmo",
+                label: "Start at CMO desk",
+                className: "btn-primary focus-ring text-base",
+              }}
+              authed={{
+                href: "/app/cmo",
+                label: "Start at CMO desk",
+                className: "btn-primary focus-ring text-base",
+              }}
+              guestSecondary={[
+                {
+                  href: "/get-started",
+                  label: "Full checklist",
+                  className: "btn-ghost focus-ring text-base",
+                },
+              ]}
+              authedSecondary={[
+                {
+                  href: "/get-started",
+                  label: "See the steps",
+                  className: "btn-ghost focus-ring text-base",
+                },
+              ]}
+            />
           </>
         }
       />
 
       <MarketingSection flush>
         <MarketingStepList steps={BEATS} />
-        <p className="mt-6 max-w-xl text-sm text-muted">
-          Inbound-only founders score low until public signal is attached. Add a
-          GitHub handle + product URL on the profile, then run{" "}
-          <strong className="text-ink">Gather &amp; screen</strong> so
-          distribution gravity can update from live APIs.
-        </p>
       </MarketingSection>
     </>
   );

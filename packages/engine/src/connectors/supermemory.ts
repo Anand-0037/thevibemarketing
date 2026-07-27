@@ -59,16 +59,39 @@ function headers(key: string): Record<string, string> {
   };
 }
 
-/** Default container for the fleet brand brain (demo / single-tenant local). */
-export function brandContainerTag(brandSlug = "thevibemarketing"): string {
-  const safe = brandSlug
+/**
+ * Multi-tenant brand container.
+ * Prefer brandContainerTag({ ownerId, brandSlug }) — name-only is legacy and unsafe for SaaS.
+ */
+export function brandContainerTag(
+  brandSlugOrOpts:
+    | string
+    | { ownerId?: string; brandSlug?: string } = "thevibemarketing",
+): string {
+  if (typeof brandSlugOrOpts === "string") {
+    // Legacy path — demo / single-tenant only. Prefer owner-scoped form.
+    const safe = brandSlugOrOpts
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 48);
+    return `org_demo:brand_${safe || "fleet"}`;
+  }
+
+  const ownerRaw = (brandSlugOrOpts.ownerId || "anonymous").trim();
+  const owner = ownerRaw
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 12)
+    .toLowerCase() || "anon";
+  const safe = (brandSlugOrOpts.brandSlug || "fleet")
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 48);
-  return `org_demo:brand_${safe || "fleet"}`;
+  return `ws_${owner}:brand_${safe || "fleet"}`;
 }
 
+/** VC Brain / founder-scoped container (not marketing brand). */
 export function founderContainerTag(founderId: string): string {
   const safe = founderId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
   return `founder_${safe}`;

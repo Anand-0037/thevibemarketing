@@ -25,12 +25,14 @@ export function Footer() {
             className="focus-ring inline-flex items-center gap-2"
             aria-label={`${SITE_NAME} home`}
           >
-            <BrandMark className="h-8 w-8" />
-            <span className="font-display text-lg font-bold">{SITE_NAME}</span>
+            <BrandMark className="h-9 w-9" />
+            <span className="font-display text-lg font-bold tracking-tight">
+              <span className="text-accent">vibe</span>
+              <span className="text-ink">marketer</span>
+            </span>
           </Link>
           <p className="mt-3 max-w-xs text-base text-muted">
-            Cursor for marketing — brand brief, campaign plans, and drafts you
-            approve. Same engine powers VC Brain.
+            Paste a product URL. Get on-brand drafts. Approve what goes live.
           </p>
           <p className="mt-3 text-sm">
             <a
@@ -97,16 +99,13 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/vc-brain" className="focus-ring hover:text-accent">
-                VC Brain
+              <Link href="/get-started" className="focus-ring hover:text-accent">
+                Get started
               </Link>
             </li>
             <li>
-              <Link
-                href="/tools/gravity-audit"
-                className="focus-ring hover:text-accent"
-              >
-                Gravity Audit
+              <Link href="/demo" className="focus-ring hover:text-accent">
+                Demo path
               </Link>
             </li>
           </ul>
@@ -171,8 +170,18 @@ export function Footer() {
               </a>
             </li>
             <li>
+              <a href="/site-index.txt" className="focus-ring hover:text-accent">
+                site-index.txt
+              </a>
+            </li>
+            <li>
               <a href="/feed.jsonl" className="focus-ring hover:text-accent">
                 feed.jsonl
+              </a>
+            </li>
+            <li>
+              <a href="/answers.json" className="focus-ring hover:text-accent">
+                answers.json
               </a>
             </li>
             <li>

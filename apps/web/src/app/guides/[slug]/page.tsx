@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AuthAwareActions } from "@/components/AuthAwareCta";
 import { JsonLd } from "@/components/JsonLd";
 import {
   MarketingPageHero,
   MarketingSection,
 } from "@/components/MarketingPage";
 import { guides } from "@/content/guides";
-import { articleJsonLd, pageMetadata } from "@/lib/seo";
+import {
+  articleJsonLd,
+  breadcrumbJsonLd,
+  itemListJsonLd,
+  pageMetadata,
+  webPageJsonLd,
+} from "@/lib/seo";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -31,16 +38,38 @@ export default async function GuideSlugPage({ params }: Props) {
   const { slug } = await params;
   const g = guides.find((x) => x.slug === slug);
   if (!g) notFound();
+  const otherGuides = guides.filter((guide) => guide.slug !== g.slug);
 
   return (
     <article>
       <JsonLd
-        data={articleJsonLd({
-          title: g.title,
-          description: g.excerpt,
-          path: `/guides/${g.slug}`,
-          date: "2026-07-18",
-        })}
+        data={[
+          articleJsonLd({
+            title: g.title,
+            description: g.excerpt,
+            path: `/guides/${g.slug}`,
+            date: "2026-07-18",
+          }),
+          webPageJsonLd({
+            name: g.title,
+            description: g.excerpt,
+            path: `/guides/${g.slug}`,
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Guides", path: "/guides" },
+            { name: g.title, path: `/guides/${g.slug}` },
+          ]),
+          itemListJsonLd({
+            name: "Related vibemarketer guides",
+            path: `/guides/${g.slug}`,
+            items: otherGuides.map((guide) => ({
+              name: guide.title,
+              path: `/guides/${guide.slug}`,
+              description: guide.excerpt,
+            })),
+          }),
+        ]}
       />
       <MarketingPageHero
         narrow
@@ -49,12 +78,32 @@ export default async function GuideSlugPage({ params }: Props) {
         lead={g.excerpt}
         actions={
           <>
-            <Link href="/app/studio" className="btn-primary focus-ring text-base">
-              Open Studio
-            </Link>
-            <Link href="/get-started" className="btn-ghost focus-ring text-base">
-              Get started
-            </Link>
+            <AuthAwareActions
+              guest={{
+                href: "/app/studio",
+                label: "Open Studio",
+                className: "btn-primary focus-ring text-base",
+              }}
+              authed={{
+                href: "/app/studio",
+                label: "Open Studio",
+                className: "btn-primary focus-ring text-base",
+              }}
+              guestSecondary={[
+                {
+                  href: "/get-started",
+                  label: "Get started",
+                  className: "btn-ghost focus-ring text-base",
+                },
+              ]}
+              authedSecondary={[
+                {
+                  href: "/get-started",
+                  label: "See the steps",
+                  className: "btn-ghost focus-ring text-base",
+                },
+              ]}
+            />
           </>
         }
       >

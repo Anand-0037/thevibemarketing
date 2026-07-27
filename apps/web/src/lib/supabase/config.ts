@@ -6,13 +6,11 @@ export function getSupabaseUrl(): string | undefined {
 }
 
 export function getSupabasePublishableKey(): string | undefined {
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
   return key || undefined;
 }
 
-/** True when URL + publishable/anon key are present. */
+/** True when URL + publishable key are present. */
 export function isAuthConfigured(): boolean {
   return Boolean(getSupabaseUrl() && getSupabasePublishableKey());
 }
@@ -68,7 +66,10 @@ export function assertProductionAuthSafe(): void {
 }
 
 /** Only allow same-origin relative paths (open-redirect safe). */
-export function safeNextPath(raw: string | null | undefined, fallback = "/app"): string {
+export function safeNextPath(
+  raw: string | null | undefined,
+  fallback = "/app/cmo",
+): string {
   const safeFallback =
     fallback.startsWith("/") &&
     !fallback.includes("://") &&
@@ -76,7 +77,7 @@ export function safeNextPath(raw: string | null | undefined, fallback = "/app"):
     !fallback.includes("\\") &&
     !fallback.includes("\0")
       ? fallback
-      : "/app";
+      : "/app/cmo";
   if (!raw) return safeFallback;
   if (
     !raw.startsWith("/") ||

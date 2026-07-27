@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 type Props = {
@@ -10,7 +9,8 @@ type Props = {
 };
 
 /**
- * Tries Dodo checkout; falls back to waitlist when billing isn't configured.
+ * Starts a real Dodo checkout when billing is configured.
+ * Plan activates only after webhook → billing_entitlements (not success URL).
  */
 export function CheckoutButton({ tier, label, highlight }: Props) {
   const [busy, setBusy] = useState(false);
@@ -24,22 +24,20 @@ export function CheckoutButton({ tier, label, highlight }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier }),
+        credentials: "include",
       });
       const data = (await res.json()) as {
         ok?: boolean;
         checkout_url?: string;
-        fallback?: string;
-        href?: string;
         message?: string;
       };
       if (data.ok && data.checkout_url) {
         window.location.href = data.checkout_url;
         return;
       }
-      setNote(data.message || "Billing not live — join the waitlist.");
-      window.location.href = data.href || "/#waitlist";
+      setNote(data.message || "Checkout is currently unavailable.");
     } catch {
-      setNote("Checkout unavailable — join the waitlist.");
+      setNote("Checkout is currently unavailable.");
     } finally {
       setBusy(false);
     }
@@ -58,15 +56,11 @@ export function CheckoutButton({ tier, label, highlight }: Props) {
         {busy ? "Starting checkout…" : label}
       </button>
       {note ? (
-        <p className="text-center text-xs text-muted">
-          {note}{" "}
-          <Link href="/#waitlist" className="text-accent hover:underline">
-            Waitlist
-          </Link>
-        </p>
+        <p className="text-center text-xs text-muted">{note}</p>
       ) : (
         <p className="text-center text-xs text-muted">
-          Checkout opens when payments are enabled · otherwise join the waitlist
+          Sign in before checkout so we can link your plan. Access unlocks after
+          payment webhook — not the thank-you page.
         </p>
       )}
     </div>

@@ -9,7 +9,10 @@ export function WaitlistBanner() {
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("waitlist");
     if (v === "ok") {
-      setMsg({ ok: true, text: "You're on the list. We'll reach out when a seat opens." });
+      setMsg({
+        ok: true,
+        text: "Got it — you'll get product drops by email. Prefer to ship now? Start free.",
+      });
     } else if (v === "invalid") {
       setMsg({ ok: false, text: "That email looked invalid — try again." });
     }

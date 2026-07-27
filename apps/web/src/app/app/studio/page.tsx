@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import {
+  formatPlanError,
+  readPlanApiError,
+} from "@/lib/api-plan-error";
 import type {
   AutonomyLevel,
   BrandContext,
@@ -19,9 +23,9 @@ const PLATFORM_LABEL: Record<string, string> = {
 const AUTONOMY_LEVELS: AutonomyLevel[] = ["L1", "L2", "L3"];
 
 const AUTONOMY_HINT: Record<AutonomyLevel, string> = {
-  L1: "Every draft pending HITL → approve queues publish (needs connected account)",
-  L2: "X/LinkedIn daily auto-queue when connected; Reddit/opportunity stay pending",
-  L3: "All new drafts auto-queue when connected — HITL still available",
+  L1: "Every draft pending HITL → Approve queues (live needs connected account)",
+  L2: "X/LinkedIn drafts auto-queue after generate (not published). Reddit/SEO/HN stay pending",
+  L3: "Coming soon — auto-publish blocked until a dedicated live path exists",
 };
 
 export default function StudioPage() {
@@ -37,6 +41,18 @@ export default function StudioPage() {
   const [banner, setBanner] = useState<string | null>(null);
   const [campaign, setCampaign] = useState<CampaignBrief | null>(null);
   const [campaignBusy, setCampaignBusy] = useState(false);
+  const [redditBusy, setRedditBusy] = useState(false);
+  const [seoBusy, setSeoBusy] = useState(false);
+  const [hnBusy, setHnBusy] = useState(false);
+  const [dayDraftBusy, setDayDraftBusy] = useState<number | null>(null);
+  const [meterLine, setMeterLine] = useState<string | null>(null);
+  const [features, setFeatures] = useState<
+    Record<string, { allowed: boolean; min_label: string; label: string }>
+  >({});
+  const [upgradeHref, setUpgradeHref] = useState<string | null>(null);
+  const [creationMode, setCreationMode] = useState<"drafts" | "campaign">(
+    "drafts",
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,25 +94,101 @@ export default function StudioPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/billing/me");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          meter?: {
+            used?: number;
+            limit?: number;
+            remaining?: number;
+            period?: string;
+            label?: string;
+          };
+          features?: Record<
+            string,
+            { allowed: boolean; min_label: string; label: string }
+          >;
+        };
+        if (cancelled) return;
+        if (data.meter) {
+          setMeterLine(
+            `${data.meter.label ?? "Free"} · ${data.meter.used ?? 0}/${data.meter.limit ?? "—"} runs (${data.meter.period ?? "mo"})`,
+          );
+        }
+        if (data.features) setFeatures(data.features);
+      } catch {
+        /* optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function featureAllowed(key: string): boolean {
+    // Until billing/me loads, allow clicks — API still enforces
+    if (!features[key]) return true;
+    return features[key].allowed;
+  }
+
+  function featureTitle(key: string, fallback: string): string {
+    const f = features[key];
+    if (f && !f.allowed) {
+      return `${f.label} requires ${f.min_label}+ — upgrade on /pricing`;
+    }
+    return fallback;
+  }
+
+  async function handlePlanFail(res: Response): Promise<never> {
+    const pe = await readPlanApiError(res);
+    if (pe.meter) {
+      setMeterLine(
+        `Runs ${pe.meter.used}/${pe.meter.limit} left ${pe.meter.remaining ?? 0} (${pe.meter.period ?? ""})`,
+      );
+    }
+    if (pe.upgrade) setUpgradeHref(pe.upgrade);
+    throw new Error(formatPlanError(pe));
+  }
+
   async function generate() {
     setGenerating(true);
     setError(null);
     setBanner(null);
+    setUpgradeHref(null);
     try {
-      const res = await fetch("/api/marketing/draft", { method: "POST" });
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        throw new Error(body.error || "Draft generation failed");
-      }
+      const res = await fetch("/api/marketing/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) await handlePlanFail(res);
       const data = (await res.json()) as {
         source?: string;
-        openai?: { ok: boolean; detail?: string; fallback?: string };
+        auto_queued?: number;
+        autonomy?: string;
+        openai?: { ok: boolean; detail?: string };
+        meter?: {
+          used?: number;
+          limit?: number;
+          remaining?: number;
+          period?: string;
+        };
       };
-      const source = data.source ?? "template";
+      const source = data.source ?? "openai+supermemory";
+      const aq = data.auto_queued ?? 0;
+      if (data.meter) {
+        setMeterLine(
+          `Runs ${data.meter.used}/${data.meter.limit} left ${data.meter.remaining} (${data.meter.period})`,
+        );
+      }
       setBanner(
-        data.openai?.ok
-          ? `Generated 3 on-brand drafts (${source}) → review in HITL queue.`
-          : `Generated 3 drafts via templates (${source}${data.openai?.detail ? ` · ${data.openai.detail}` : ""}). Connect OpenAI for richer voice.`,
+        aq > 0
+          ? `Generated drafts (${source}). L2 auto-queued ${aq} low-risk channel(s) — still not published without provider id. Reddit stays pending HITL.`
+          : `Generated 3 on-brand drafts (${source}) → review in HITL queue. Nothing published.`,
       );
       await load();
     } catch (e) {
@@ -106,16 +198,71 @@ export default function StudioPage() {
     }
   }
 
+  /** Map campaign day channel → draft platform (email/blog → linkedin long-form). */
+  function platformForCampaignDay(
+    channel: string,
+  ): "x" | "linkedin" | "reddit" | null {
+    const c = channel.toLowerCase();
+    if (c === "x" || c === "linkedin" || c === "reddit") return c;
+    if (c === "email" || c === "blog") return "linkedin";
+    return null;
+  }
+
+  async function draftCampaignDay(day: {
+    day: number;
+    channel: string;
+    goal: string;
+    draft_hint: string;
+  }) {
+    const platform = platformForCampaignDay(day.channel);
+    if (!platform) {
+      setError(`Cannot draft for channel “${day.channel}” yet.`);
+      return;
+    }
+    setDayDraftBusy(day.day);
+    setError(null);
+    setBanner(null);
+    try {
+      const res = await fetch("/api/marketing/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform,
+          day: day.day,
+          goal: day.goal,
+          draft_hint: day.draft_hint,
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        auto_queued?: number;
+        posts?: unknown[];
+      };
+      if (!res.ok) {
+        throw new Error(data.error || "Day draft failed");
+      }
+      const n = Array.isArray(data.posts) ? data.posts.length : 1;
+      setBanner(
+        `Day ${day.day} · ${platform}: ${n} draft(s) in HITL${
+          data.auto_queued ? ` (${data.auto_queued} auto-queued L2)` : ""
+        }. Nothing published without provider id.`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Day draft failed");
+    } finally {
+      setDayDraftBusy(null);
+    }
+  }
+
   async function generateCampaign() {
     setCampaignBusy(true);
     setError(null);
     setBanner(null);
+    setUpgradeHref(null);
     try {
       const res = await fetch("/api/marketing/campaign", { method: "POST" });
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        throw new Error(body.error || "Campaign brief failed");
-      }
+      if (!res.ok) await handlePlanFail(res);
       const data = (await res.json()) as { campaign: CampaignBrief };
       setCampaign(data.campaign);
       setBanner(
@@ -129,41 +276,110 @@ export default function StudioPage() {
     }
   }
 
+  async function runRedditAgent() {
+    setRedditBusy(true);
+    setError(null);
+    setBanner(null);
+    setUpgradeHref(null);
+    try {
+      const res = await fetch("/api/marketing/agents/reddit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 4, enqueue: true }),
+      });
+      if (!res.ok) await handlePlanFail(res);
+      const data = (await res.json()) as {
+        error?: string;
+        enqueued?: number;
+        note?: string;
+      };
+      const n = data.enqueued ?? 0;
+      setBanner(
+        `Reddit agent: ${n} reply draft${n === 1 ? "" : "s"} in HITL queue (never auto-posted). ${data.note || ""}`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Reddit agent failed");
+    } finally {
+      setRedditBusy(false);
+    }
+  }
+
+  async function runSeoAgent() {
+    setSeoBusy(true);
+    setError(null);
+    setBanner(null);
+    setUpgradeHref(null);
+    try {
+      const res = await fetch("/api/marketing/agents/seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enqueue: true }),
+      });
+      if (!res.ok) await handlePlanFail(res);
+      const data = (await res.json()) as {
+        error?: string;
+        note?: string;
+        draft?: { title?: string; primary_keyword?: string };
+        keywords?: unknown[];
+      };
+      setBanner(
+        `SEO agent: “${data.draft?.title || "draft"}” queued for HITL (kw: ${data.draft?.primary_keyword || "—"}). ${data.note || ""}`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "SEO agent failed");
+    } finally {
+      setSeoBusy(false);
+    }
+  }
+
+  async function runHnAgent() {
+    setHnBusy(true);
+    setError(null);
+    setBanner(null);
+    setUpgradeHref(null);
+    try {
+      const res = await fetch("/api/marketing/agents/hn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 3, enqueue: true }),
+      });
+      if (!res.ok) await handlePlanFail(res);
+      const data = (await res.json()) as {
+        error?: string;
+        enqueued?: number;
+        note?: string;
+      };
+      setBanner(
+        `HN agent: ${data.enqueued ?? 0} comment draft(s) in queue. ${data.note || ""}`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "HN agent failed");
+    } finally {
+      setHnBusy(false);
+    }
+  }
+
   async function runLoop(type: "daily_distribution" | "opportunity") {
+    if (type === "opportunity") {
+      await runRedditAgent();
+      return;
+    }
     setLoopBusy(type);
     setError(null);
     setBanner(null);
     try {
-      const res = await fetch("/api/marketing/loops/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
-      });
+      // Daily loop → multi-channel drafts (same as generate)
+      const res = await fetch("/api/marketing/draft", { method: "POST" });
       if (!res.ok) {
         const body = (await res.json()) as { error?: string };
         throw new Error(body.error || "Loop failed");
       }
-      const data = (await res.json()) as {
-        posts: Post[];
-        auto_published?: number;
-        stub?: boolean;
-      };
-      const label =
-        type === "daily_distribution"
-          ? "Daily Distribution Loop"
-          : "Opportunity Loop";
-      const autoPublished = data.auto_published ?? 0;
-      const pendingCount = data.posts.length - autoPublished;
-      let message = `${label} created ${data.posts.length} draft${data.posts.length === 1 ? "" : "s"} (templates).`;
-      if (autoPublished > 0) {
-        message += ` ${autoPublished} auto-published under autonomy dial.`;
-      }
-      if (pendingCount > 0) {
-        message += ` ${pendingCount} pending — review in HITL queue.`;
-      } else if (autoPublished === 0) {
-        message += " Review in HITL queue.";
-      }
-      setBanner(message);
+      setBanner(
+        "Daily distribution: 3 channel drafts created. Review in HITL queue — nothing published.",
+      );
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Loop failed");
@@ -197,7 +413,14 @@ export default function StudioPage() {
     }
   }
 
-  const busy = generating || campaignBusy || loopBusy !== null;
+  const busy =
+    generating ||
+    campaignBusy ||
+    redditBusy ||
+    seoBusy ||
+    hnBusy ||
+    dayDraftBusy !== null ||
+    loopBusy !== null;
 
   return (
     <div>
@@ -208,42 +431,182 @@ export default function StudioPage() {
             Studio
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            For SaaS founders, startups, and MSMEs: turn brand context into a
-            7-day campaign brief and channel drafts (X, LinkedIn, Reddit). HITL
-            before anything queues — Google Business Profile posts coming soon.
+            For SaaS founders, startups, and MSMEs: brand-grounded campaign brief
+            + channel drafts (X, LinkedIn, Reddit). Approve before live publish —
+            Google Business Profile posts coming soon.
           </p>
+          {meterLine ? (
+            <p className="mt-2 font-mono text-[11px] text-muted">
+              Plan meter · {meterLine}
+              {" · "}
+              <Link href="/pricing" className="text-accent hover:underline">
+                Upgrade
+              </Link>
+            </p>
+          ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-            onClick={() => void generateCampaign()}
-            disabled={busy || campaignBusy}
-            aria-busy={campaignBusy}
-          >
-            {campaignBusy ? "Planning…" : "7-day campaign brief"}
-          </button>
-          <button
-            type="button"
-            className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
-            onClick={() => void generate()}
-            disabled={busy || campaignBusy}
-            aria-busy={generating}
-          >
-            {generating ? "Generating…" : "Generate 3 drafts"}
-          </button>
-        </div>
+        <Link
+          href="/app/queue"
+          className="font-mono text-[11px] uppercase tracking-widest text-accent hover:underline focus-ring"
+        >
+          Review queue →
+        </Link>
       </div>
 
       {error ? (
-        <p className="mt-4 text-sm text-danger" role="alert">
-          {error}
-        </p>
+        <div className="panel mt-4 border-danger/40 p-4" role="alert">
+          <p className="text-sm text-danger">{error}</p>
+          {upgradeHref ? (
+            <Link
+              href={upgradeHref}
+              className="btn-primary focus-ring mt-3 inline-flex !px-3 !py-1.5 text-sm"
+            >
+              View plans · upgrade
+            </Link>
+          ) : null}
+        </div>
       ) : null}
       {banner ? (
         <p className="mt-4 text-sm text-accent" role="status">
           {banner}
         </p>
+      ) : null}
+
+      {brand ? (
+        <section className="panel mt-6 border-accent/30 p-5 sm:p-6" aria-label="Create marketing">
+          <p className="section-label mb-2 text-accent">Create from brand memory</p>
+          <h2 className="font-display text-xl font-semibold">
+            What do you want ready for review?
+          </h2>
+          <div
+            className="mt-4 grid gap-2 sm:grid-cols-2"
+            role="radiogroup"
+            aria-label="Creation mode"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={creationMode === "drafts"}
+              className={`focus-ring border p-4 text-left ${
+                creationMode === "drafts"
+                  ? "border-accent bg-accent/10"
+                  : "border-line bg-bg-elevated"
+              }`}
+              onClick={() => setCreationMode("drafts")}
+            >
+              <span className="font-display text-base font-semibold">Channel drafts</span>
+              <span className="mt-1 block text-xs text-muted">
+                X, LinkedIn, and Reddit drafts grounded in current memory.
+              </span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={creationMode === "campaign"}
+              className={`focus-ring border p-4 text-left ${
+                creationMode === "campaign"
+                  ? "border-accent bg-accent/10"
+                  : "border-line bg-bg-elevated"
+              }`}
+              onClick={() => setCreationMode("campaign")}
+            >
+              <span className="font-display text-base font-semibold">7-day campaign</span>
+              <span className="mt-1 block text-xs text-muted">
+                A reviewable daily brief; each day is drafted separately.
+              </span>
+            </button>
+          </div>
+          <button
+            type="button"
+            className="btn-primary focus-ring mt-4 w-full justify-center text-sm sm:w-auto"
+            onClick={() =>
+              creationMode === "drafts"
+                ? void generate()
+                : void generateCampaign()
+            }
+            disabled={
+              busy ||
+              (creationMode === "campaign" && !featureAllowed("campaign"))
+            }
+            aria-busy={generating || campaignBusy}
+          >
+            {generating || campaignBusy
+              ? creationMode === "drafts"
+                ? "Creating drafts…"
+                : "Planning campaign…"
+              : creationMode === "drafts"
+                ? "Create 3 drafts"
+                : featureAllowed("campaign")
+                  ? "Create campaign brief"
+                  : "Campaign · Starter+"}
+          </button>
+          <p className="mt-2 text-xs text-muted">
+            Output goes to review. Nothing is provider-confirmed published from this action.
+          </p>
+
+          <details className="mt-5 border-t border-line pt-4">
+            <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-widest text-muted hover:text-ink">
+              Advanced workflows · Reddit, HN, SEO
+            </summary>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+                onClick={() => void runRedditAgent()}
+                disabled={busy || !featureAllowed("reddit_agent")}
+                title={featureTitle("reddit_agent", "Find Reddit threads and draft HITL replies")}
+              >
+                {redditBusy ? "Finding Reddit opportunities…" : "Reddit opportunities"}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+                onClick={() => void runHnAgent()}
+                disabled={busy || !featureAllowed("hn_agent")}
+                title={featureTitle("hn_agent", "HN stories + comment drafts for HITL")}
+              >
+                {hnBusy ? "Finding HN opportunities…" : "HN opportunities"}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+                onClick={() => void runSeoAgent()}
+                disabled={busy || !featureAllowed("seo_agent")}
+                title={featureTitle("seo_agent", "Keyword opportunities + long-form SEO draft")}
+              >
+                {seoBusy ? "Researching SEO…" : "SEO article brief"}
+              </button>
+            </div>
+          </details>
+        </section>
+      ) : null}
+
+      {!loading && !brand ? (
+        <div className="panel mt-6 border-accent/40 p-6 sm:p-8">
+          <p className="section-label mb-2 text-accent">Studio needs a brand</p>
+          <h2 className="font-display text-xl font-semibold">
+            One URL unlocks agents + drafts
+          </h2>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
+            Onboarding extracts voice, ICP, and pillars, then can auto-draft
+            three channels. Come back here for Reddit · HN · SEO agents and
+            the autonomy dial.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/app/onboarding"
+              className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+            >
+              Paste product URL →
+            </Link>
+            <Link
+              href="/app/cmo"
+              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+            >
+              CMO desk
+            </Link>
+          </div>
+        </div>
       ) : null}
 
       {campaign ? (
@@ -259,13 +622,24 @@ export default function StudioPage() {
             {campaign.days.map((d) => (
               <li
                 key={d.day}
-                className="border border-line px-3 py-2 text-sm"
+                className="flex flex-col gap-2 border border-line px-3 py-2 text-sm sm:flex-row sm:items-start sm:justify-between"
               >
-                <span className="font-mono text-[10px] uppercase text-accent">
-                  Day {d.day} · {d.channel}
-                </span>
-                <p className="mt-0.5 font-medium text-ink">{d.goal}</p>
-                <p className="mt-0.5 text-xs text-muted">{d.draft_hint}</p>
+                <div className="min-w-0 flex-1">
+                  <span className="font-mono text-[10px] uppercase text-accent">
+                    Day {d.day} · {d.channel}
+                  </span>
+                  <p className="mt-0.5 font-medium text-ink">{d.goal}</p>
+                  <p className="mt-0.5 text-xs text-muted">{d.draft_hint}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost focus-ring shrink-0 !px-2 !py-1 text-xs"
+                  disabled={busy || !brand}
+                  onClick={() => void draftCampaignDay(d)}
+                  title="Generate one HITL draft for this day"
+                >
+                  {dayDraftBusy === d.day ? "Drafting…" : "Draft day → queue"}
+                </button>
               </li>
             ))}
           </ol>
@@ -278,8 +652,9 @@ export default function StudioPage() {
           Agentic loops
         </p>
         <p className="mt-1 text-sm text-muted">
-          Daily + opportunity drafts for X / LinkedIn / Reddit. OpenAI when
-          keyed; otherwise templates. Everything lands pending for HITL.
+          Daily multi-channel drafts + Reddit opportunity loop. Live model +
+          brand memory required (no templates). L1 pending HITL; L2 auto-queues
+          X/LinkedIn only — never fakes published.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button
@@ -321,35 +696,60 @@ export default function StudioPage() {
         ) : null}
       </section>
 
-      <section className="panel mt-4 p-4" aria-label="Autonomy dial">
+      <section className="panel mt-4 p-4" aria-label="Publishing policy">
         <p className="font-mono text-[10px] uppercase tracking-widest text-accent">
-          Autonomy dial
+          Publishing policy
         </p>
+        <h2 className="mt-1 font-display text-base font-semibold">
+          {autonomy === "L1"
+            ? "Review every draft"
+            : autonomy === "L2"
+              ? "Auto-queue low-risk drafts"
+              : "Automatic publishing unavailable"}
+        </h2>
         <p className="mt-1 text-sm text-muted">{AUTONOMY_HINT[autonomy]}</p>
         <div
           className="mt-3 flex flex-wrap gap-2"
           role="group"
           aria-label="Autonomy level"
         >
-          {AUTONOMY_LEVELS.map((level) => (
-            <button
-              key={level}
-              type="button"
-              className={
-                autonomy === level
-                  ? "btn-primary focus-ring !px-3 !py-1.5 text-sm"
-                  : "btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-              }
-              onClick={() => void saveAutonomy(level)}
-              disabled={savingAutonomy}
-              aria-pressed={autonomy === level}
-            >
-              {level}
-            </button>
-          ))}
+          {AUTONOMY_LEVELS.map((level) => {
+            const l2Locked = level === "L2" && !featureAllowed("l2_autonomy");
+            const l3Blocked = level === "L3";
+            return (
+              <button
+                key={level}
+                type="button"
+                className={
+                  autonomy === level
+                    ? "btn-primary focus-ring !px-3 !py-1.5 text-sm"
+                    : "btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+                }
+                onClick={() => void saveAutonomy(level)}
+                disabled={savingAutonomy || l2Locked || l3Blocked}
+                aria-pressed={autonomy === level}
+                title={
+                  l3Blocked
+                    ? "L3 auto-publish not available yet"
+                    : l2Locked
+                      ? featureTitle("l2_autonomy", "L2")
+                      : AUTONOMY_HINT[level]
+                }
+              >
+                {level === "L1"
+                  ? "Review everything"
+                  : level === "L2"
+                    ? "Auto-queue low risk"
+                    : "Auto-publish"}
+                {l2Locked ? " · Growth+" : ""}
+                {l3Blocked ? " · soon" : ""}
+              </button>
+            );
+          })}
         </div>
         <p className="mt-2 font-mono text-[10px] text-muted">
-          Saves to marketing.json. Next Studio loop run respects the dial (L2/L3 auto-queue when connected).
+          L1 free · L2 auto-queue is Growth+ · L3 blocked. Generate drafts to
+          apply L2 when unlocked.
         </p>
       </section>
 
@@ -403,14 +803,14 @@ export default function StudioPage() {
         ) : (
           <div>
             <p className="text-sm text-muted">
-              No brand context yet. Run onboarding to extract voice, ICP, and
-              pillars — then generate drafts here.
+              Brand context will appear here after onboarding. Agents stay
+              available once memory is live — we don&apos;t invent a brand.
             </p>
             <Link
               href="/app/onboarding"
-              className="btn-ghost focus-ring mt-4 inline-flex !px-3 !py-1.5 text-sm"
+              className="btn-primary focus-ring mt-4 inline-flex !px-3 !py-1.5 text-sm"
             >
-              Go to onboarding
+              Onboard product URL
             </Link>
           </div>
         )}

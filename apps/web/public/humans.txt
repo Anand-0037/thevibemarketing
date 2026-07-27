@@ -8,4 +8,4 @@ X: https://x.com/AnandVashisht15
 /* SITE */
 Standards: Next.js, Supabase Auth + Postgres, Vercel
 Challenge: Hack-Nation Challenge 02 — The VC Brain
-SEO/AEO surfaces: /llms.txt · /llms-full.txt · /feed.jsonl · /rss.xml · /sitemap.xml · /robots.txt
+SEO/AEO surfaces: /llms.txt · /llms-full.txt · /site-index.txt · /feed.jsonl · /answers.json · /rss.xml · /sitemap.xml · /robots.txt

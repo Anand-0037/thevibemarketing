@@ -10,91 +10,16 @@ import type { ResearchFinding, ResearchHit } from "./types";
 export type SynthesizeResult = {
   findings: ResearchFinding[];
   open_questions: string[];
-  synthesis: "openai" | "heuristic" | "skipped";
+  synthesis: "openai" | "skipped";
 };
 
-function heuristicFromHits(
-  hits: ResearchHit[],
-  founder: Founder,
-  product?: Product | null,
-): SynthesizeResult {
-  const findings: ResearchFinding[] = [];
-  const withUrl = hits.filter((h) => /^https?:\/\//i.test(h.url));
-
-  if (withUrl.length > 0) {
-    const top = withUrl.slice(0, 4);
-    findings.push({
-      id: `rf_${randomUUID().slice(0, 8)}`,
-      claim: `Public web footprint exists for ${founder.name}${product?.name ? ` / ${product.name}` : ""} across ${top.length} indexed sources.`,
-      topic: "founder",
-      support: "supported",
-      citations: top.map((h) => ({
-        url: h.url,
-        snippet: h.excerpt.slice(0, 160),
-        source: h.provider,
-      })),
-      confidence: Math.min(0.75, 0.35 + top.length * 0.08),
-    });
-  }
-
-  const scrapeHits = hits.filter((h) => h.query === "scrape" && h.excerpt.length > 80);
-  if (scrapeHits[0]) {
-    findings.push({
-      id: `rf_${randomUUID().slice(0, 8)}`,
-      claim: `Primary site/page scrape returned ${scrapeHits[0].excerpt.length} chars of markdown for diligence.`,
-      topic: "product",
-      support: "supported",
-      citations: [
-        {
-          url: scrapeHits[0].url,
-          snippet: scrapeHits[0].excerpt.slice(0, 160),
-          source: "firecrawl",
-        },
-      ],
-      confidence: 0.55,
-    });
-  }
-
-  const e2b = hits.find((h) => h.provider === "e2b");
-  if (e2b) {
-    findings.push({
-      id: `rf_${randomUUID().slice(0, 8)}`,
-      claim: `Sandbox code forensics ran on linked GitHub repo (${e2b.title}).`,
-      topic: "product",
-      support: "supported",
-      citations: [
-        {
-          url: e2b.url,
-          snippet: e2b.excerpt.slice(0, 160),
-          source: "e2b",
-        },
-      ],
-      confidence: 0.6,
-    });
-  }
-
-  const open_questions = [
-    "Cap table / ownership: not disclosed in public sources",
-    "Verified revenue / MRR: not disclosed",
-    "Customer references: unavailable from open web",
-  ];
-  if (!product?.sector) {
-    open_questions.push("Sector classification: unclear from public materials");
-  }
-  if (withUrl.length < 2) {
-    open_questions.push("Thin public web coverage — more outbound diligence needed");
-  }
-
-  return {
-    findings,
-    open_questions,
-    synthesis: hits.length === 0 ? "skipped" : "heuristic",
-  };
+function unavailable(reason: string): SynthesizeResult {
+  return { findings: [], open_questions: [reason], synthesis: "skipped" };
 }
 
 /**
  * Cite-only synthesis. OpenAI may rephrase evidence; it must not invent URLs or metrics.
- * Falls back to heuristic dossier when the model is unavailable.
+ * No heuristic result is produced when the live model is unavailable.
  */
 export async function synthesizeResearch(opts: {
   founder: Founder;
@@ -102,10 +27,12 @@ export async function synthesizeResearch(opts: {
   hits: ResearchHit[];
 }): Promise<SynthesizeResult> {
   const { founder, product, hits } = opts;
-  const fallback = heuristicFromHits(hits, founder, product);
 
-  if (!process.env.OPENAI_API_KEY?.trim() || hits.length === 0) {
-    return fallback;
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return unavailable("Live research synthesis is unavailable: OPENAI_API_KEY is not configured.");
+  }
+  if (hits.length === 0) {
+    return unavailable("Live research synthesis is unavailable: no verified source material was collected.");
   }
 
   const packed = hits
@@ -152,14 +79,14 @@ RULES:
 You are a VC diligence synthesizer. Cite only. Prefer "unknown" over hallucination.`,
     });
     if (!parsed.ok || !parsed.data || typeof parsed.data !== "object") {
-      return fallback;
+      return unavailable("Live research synthesis returned an invalid response.");
     }
     const data = parsed.data as {
       findings?: unknown[];
       open_questions?: unknown[];
     };
     if (!Array.isArray(data.findings) || data.findings.length === 0) {
-      return fallback;
+      return unavailable("Live research synthesis returned no cite-bound findings.");
     }
 
     const findings: ResearchFinding[] = [];
@@ -212,7 +139,9 @@ You are a VC diligence synthesizer. Cite only. Prefer "unknown" over hallucinati
       });
     }
 
-    if (findings.length === 0) return fallback;
+    if (findings.length === 0) {
+      return unavailable("Live research synthesis returned no valid cited findings.");
+    }
 
     const open_questions = Array.isArray(data.open_questions)
       ? data.open_questions
@@ -220,15 +149,14 @@ You are a VC diligence synthesizer. Cite only. Prefer "unknown" over hallucinati
           .map((q) => q.trim())
           .filter(Boolean)
           .slice(0, 8)
-      : fallback.open_questions;
+      : [];
 
     return {
       findings,
-      open_questions:
-        open_questions.length > 0 ? open_questions : fallback.open_questions,
+      open_questions,
       synthesis: "openai",
     };
   } catch {
-    return fallback;
+    return unavailable("Live research synthesis failed. Retry after the provider is healthy.");
   }
 }

@@ -49,7 +49,10 @@ export function ScreeningTheater({
     if (!founderId) return;
 
     let cancelled = false;
+    let inFlight = false;
     const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await fetch(
           `/api/traces/latest/${encodeURIComponent(founderId)}`,
@@ -70,6 +73,8 @@ export function ScreeningTheater({
         }
       } catch {
         /* ignore poll errors */
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -81,22 +86,11 @@ export function ScreeningTheater({
     };
   }, [active, complete, founderId]);
 
-  // Soft fallback only until first real trace lands
   useEffect(() => {
-    if (!active || complete || live) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let i = 0;
-    const id = window.setInterval(() => {
-      i += 1;
-      setDoneIds((prev) => {
-        if (prev.size > 0) return prev;
-        return new Set(
-          PIPELINE_STEPS.slice(0, Math.min(i, 2)).map((s) => s.id),
-        );
-      });
-    }, 600);
-    return () => window.clearInterval(id);
-  }, [active, complete, live]);
+    setDoneIds(new Set());
+    setLive(false);
+    doneVisualFired.current = false;
+  }, [founderId]);
 
   if (!active && !complete) return null;
 
@@ -110,7 +104,7 @@ export function ScreeningTheater({
       aria-label="Screening pipeline"
     >
       <p className="section-label mb-3">
-        Agent pipeline{live || complete ? " · live traces" : ""}
+        Agent pipeline{live || complete ? " · live traces" : " · waiting for live traces"}
       </p>
       <ol className="space-y-2">
         {PIPELINE_STEPS.map((step, i) => {

@@ -41,29 +41,49 @@ const FLOW = [
   },
 ] as const;
 
+const JUDGE_RUNBOOK = [
+  {
+    step: "1) Trigger",
+    text: "Click Run judge flow so radar performs identify → top candidate selection → auto screen.",
+  },
+  {
+    step: "2) Validate",
+    text: "Each run validates required providers (OPENAI, GitHub, Tavily, Firecrawl) before opening a candidate.",
+  },
+  {
+    step: "3) Open memo",
+    text: "When screening finishes, the flow lands on memo for the founder so judges can review decision-support immediately.",
+  },
+] as const;
+
 export default function VcBrainPage() {
   return (
     <>
       <MarketingPageHero
-        label="Hack-Nation · Challenge 02 · Maschmeyer Group"
+        label="Optional · same engine"
         title="VC Brain"
         lead={
           <>
-            Find exceptional founders before they fundraise — scored by{" "}
+            Founder-sourcing add-on: score builders by{" "}
             <span className="text-ink">distribution gravity</span>, not pedigree.
-            A human investor gets a $100K decision-support memo within 24 hours.
+            Evidence memo for a $100K decision-support check — not an investment
+            offer. Main product is the marketing fleet.
           </>
         }
+        actionsHint="If you want founder radar"
         actions={
           <>
             <Link href="/app/radar" className="btn-primary focus-ring text-base">
-              Open radar
+              Open founder radar
             </Link>
-            <Link href="/demo" className="btn-ghost focus-ring text-base">
-              Judge demo path
+            <Link
+              href="/login?next=%2Fapp%2Fradar%3Fauto%3D1%26open_memo%3D1"
+              className="btn-ghost focus-ring text-base"
+            >
+              Run judge flow
             </Link>
-            <Link href="/app/thesis" className="btn-ghost focus-ring text-base">
-              Thesis engine
+            <Link href="/" className="btn-ghost focus-ring text-base">
+              Back to marketing product
             </Link>
           </>
         }
@@ -110,19 +130,48 @@ export default function VcBrainPage() {
         </ol>
       </MarketingSection>
 
+      <MarketingSection>
+        <MarketingSectionHeading
+          label="Judge runbook"
+          title="Live investor flow"
+          lead="For judges, the deterministic path is one click and ends at the memo."
+        />
+        <div className="stagger grid gap-4 md:grid-cols-3">
+          {JUDGE_RUNBOOK.map((item) => (
+            <div key={item.step} className="border-accent/20 border-t pt-4">
+              <p className="text-xs font-mono uppercase tracking-wide text-accent">
+                {item.step}
+              </p>
+              <p className="mt-2 text-sm text-muted">{item.text}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4">
+          <Link
+            href="/login?next=%2Fapp%2Fradar%3Fauto%3D1%26open_memo%3D1"
+            className="btn-primary focus-ring"
+          >
+            Run judge flow now
+          </Link>
+        </div>
+      </MarketingSection>
+
       <MarketingSection flush>
         <MarketingSectionHeading
           label="Shared spine"
           title="Same engine as the marketing fleet"
           lead="vibemarketer manufactures distribution. VC Brain measures it to source founders. Shared spine: ingest → memory → reason → trace."
         />
-        <div className="flex flex-wrap gap-3">
-          <Link href="/product" className="btn-ghost focus-ring">
-            Marketing product
-          </Link>
-          <Link href="/tools/gravity-audit" className="btn-ghost focus-ring">
-            Free Gravity Audit
-          </Link>
+        <div className="cta-box">
+          <p className="cta-box__hint">Related</p>
+          <div className="cta-box__actions">
+            <Link href="/product" className="btn-primary focus-ring">
+              Marketing product
+            </Link>
+            <Link href="/tools/gravity-audit" className="btn-ghost focus-ring">
+              Free Gravity Audit
+            </Link>
+          </div>
         </div>
       </MarketingSection>
     </>

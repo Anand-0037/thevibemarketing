@@ -15,14 +15,21 @@ type Report = {
   };
   loops: { runs_7d: number; done: number; failed: number };
   publish: {
-    stub_acts_7d: number;
+    queue_events_7d: number;
+    published_posts_7d: number;
     via: { hitl: number; l2: number; l3: number };
+    funnel: {
+      drafted: number;
+      approved_or_queued: number;
+      provider_confirmed: number;
+    };
     recent: Array<{
       id: string;
       post_id: string;
       platform: string;
       at: string;
       via: string;
+      actor: string;
       note: string;
     }>;
   };
@@ -30,8 +37,17 @@ type Report = {
   honest: string;
 };
 
+type PlanMeter = {
+  label: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  period: string;
+};
+
 export default function ReportPage() {
   const [report, setReport] = useState<Report | null>(null);
+  const [planMeter, setPlanMeter] = useState<PlanMeter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -39,9 +55,33 @@ export default function ReportPage() {
     if (opts?.refresh) setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/marketing/report");
-      if (!res.ok) throw new Error("Failed to load report");
-      setReport((await res.json()) as Report);
+      const [repRes, billRes] = await Promise.all([
+        fetch("/api/marketing/report"),
+        fetch("/api/billing/me"),
+      ]);
+      if (!repRes.ok) throw new Error("Failed to load report");
+      setReport((await repRes.json()) as Report);
+      if (billRes.ok) {
+        const bill = (await billRes.json()) as {
+          meter?: {
+            label?: string;
+            used?: number;
+            limit?: number;
+            remaining?: number;
+            period?: string;
+          };
+          plan?: { label?: string };
+        };
+        if (bill.meter) {
+          setPlanMeter({
+            label: bill.meter.label ?? bill.plan?.label ?? "Free",
+            used: bill.meter.used ?? 0,
+            limit: bill.meter.limit ?? 0,
+            remaining: bill.meter.remaining ?? 0,
+            period: bill.meter.period ?? "",
+          });
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
     } finally {
@@ -60,8 +100,8 @@ export default function ReportPage() {
         Weekly fleet report
       </h1>
       <p className="mt-2 max-w-xl text-sm text-muted">
-        Rollup from local marketing store — drafts, loops, queued publishes.
-        Not third-party analytics.
+        Seven-day workspace activity: drafts, approvals, delivery attempts, and
+        provider-confirmed publishes.
       </p>
 
       {error ? (
@@ -77,9 +117,65 @@ export default function ReportPage() {
           <p className="text-sm text-accent">{report.tip}</p>
           <p className="text-xs text-muted">{report.honest}</p>
 
+          <section className="panel border-warn/30 bg-warn/5 p-4">
+            <p className="section-label mb-1 text-warn">Outcome analytics unavailable</p>
+            <h2 className="font-display text-lg font-semibold">
+              Reach, clicks, and conversions are not connected
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              This report shows verified workspace and publishing activity only.
+              Connect analytics to measure what happened after a post went live;
+              no engagement metrics are estimated or invented.
+            </p>
+            <Link
+              href="/app/connectors"
+              className="btn-ghost focus-ring mt-3 inline-flex !px-3 !py-1.5 text-sm"
+            >
+              Connect analytics
+            </Link>
+          </section>
+
+          {planMeter ? (
+            <section className="panel p-4">
+              <p className="section-label mb-1 text-accent">Plan · run meter</p>
+              <p className="font-display text-lg font-semibold">
+                {planMeter.label}
+                <span className="ml-2 font-mono text-sm font-normal text-muted">
+                  {planMeter.used}/{planMeter.limit} used
+                  {planMeter.period ? ` · ${planMeter.period}` : ""}
+                </span>
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                {planMeter.remaining} generations left this UTC month. Brand
+                extracts, drafts, agents, and chat count toward the meter.
+              </p>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-line">
+                <div
+                  className="h-full bg-accent transition-all"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      planMeter.limit > 0
+                        ? (planMeter.used / planMeter.limit) * 100
+                        : 0,
+                    )}%`,
+                  }}
+                />
+              </div>
+              {planMeter.remaining <= 5 ? (
+                <Link
+                  href="/pricing"
+                  className="btn-ghost focus-ring mt-3 inline-flex !px-3 !py-1.5 text-sm"
+                >
+                  Upgrade for more runs
+                </Link>
+              ) : null}
+            </section>
+          ) : null}
+
           <section>
             <h2 className="font-display text-lg font-semibold">7-day snapshot</h2>
-            <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <div className="panel px-4 py-3">
                 <dt className="text-xs text-muted">Drafts created</dt>
                 <dd className="font-display text-2xl font-bold tabular-nums">
@@ -87,9 +183,15 @@ export default function ReportPage() {
                 </dd>
               </div>
               <div className="panel px-4 py-3">
-                <dt className="text-xs text-muted">Queued publishes</dt>
+                <dt className="text-xs text-muted">Queue events</dt>
                 <dd className="font-display text-2xl font-bold tabular-nums">
-                  {report.publish.stub_acts_7d}
+                  {report.publish.queue_events_7d}
+                </dd>
+              </div>
+              <div className="panel px-4 py-3">
+                <dt className="text-xs text-muted">Provider-published</dt>
+                <dd className="font-display text-2xl font-bold tabular-nums">
+                  {report.publish.published_posts_7d}
                 </dd>
               </div>
               <div className="panel px-4 py-3">
@@ -108,26 +210,72 @@ export default function ReportPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-lg font-semibold">By status</h2>
-            <ul className="mt-2 space-y-1 font-mono text-sm text-muted">
-              {Object.entries(report.posts.by_status).map(([k, v]) => (
-                <li key={k}>
-                  {k}:{" "}
-                  <span className="tabular-nums text-ink">{v}</span>
+            <p className="section-label mb-2">Publishing funnel</p>
+            <h2 className="font-display text-lg font-semibold">
+              Drafted → approved / queued → provider-confirmed
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Approval records delivery intent. Only the final step confirms that
+              a provider accepted and identified the live post.
+            </p>
+            <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+              {[
+                ["1", "Drafted", report.publish.funnel.drafted],
+                ["2", "Approved / queued", report.publish.funnel.approved_or_queued],
+                ["3", "Provider-confirmed", report.publish.funnel.provider_confirmed],
+              ].map(([step, label, value]) => (
+                <li key={label} className="panel relative overflow-hidden p-4">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-accent">
+                    Step {step}
+                  </span>
+                  <p className="mt-1 text-sm text-muted">{label}</p>
+                  <p className="font-display text-3xl font-bold tabular-nums text-ink">
+                    {value}
+                  </p>
                 </li>
               ))}
-            </ul>
+            </ol>
           </section>
 
           <section>
-            <h2 className="font-display text-lg font-semibold">Publish path</h2>
+            <p className="section-label mb-2">Channel breakdown</p>
+            <h2 className="font-display text-lg font-semibold">
+              Drafts created by channel
+            </h2>
+            {Object.keys(report.posts.by_platform).length === 0 ? (
+              <p className="mt-2 text-sm text-muted">
+                No channel drafts were created in this window.
+              </p>
+            ) : (
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(report.posts.by_platform)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([platform, count]) => (
+                    <li key={platform} className="panel flex items-center justify-between gap-4 p-4">
+                      <span className="font-mono text-xs uppercase tracking-widest text-muted">
+                        {platform}
+                      </span>
+                      <span className="font-display text-2xl font-bold tabular-nums text-ink">
+                        {count}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </section>
+
+          <section>
+            <h2 className="font-display text-lg font-semibold">
+              Approval and delivery activity
+            </h2>
             <p className="mt-1 text-sm text-muted">
-              HITL {report.publish.via.hitl} · L2 auto {report.publish.via.l2} ·
-              L3 auto {report.publish.via.l3}
+              Queued events: {report.publish.queue_events_7d} · HITL{" "}
+              {report.publish.via.hitl} · L2 auto-queue {report.publish.via.l2} ·
+              L3 {report.publish.via.l3} (blocked)
             </p>
             {report.publish.recent.length === 0 ? (
               <div className="mt-2">
-                <p className="text-sm text-muted">No publishes in window.</p>
+                <p className="text-sm text-muted">No queue events in window.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Link
                     href="/app/studio"
@@ -148,7 +296,8 @@ export default function ReportPage() {
                 {report.publish.recent.map((l) => (
                   <li key={l.id} className="border-b border-line pb-2 text-sm">
                     <span className="font-mono text-xs text-accent">{l.via}</span>{" "}
-                    · {l.platform} · {new Date(l.at).toLocaleString()}
+                    · {l.platform} · actor {l.actor} ·{" "}
+                    {new Date(l.at).toLocaleString()}
                     <p className="text-xs text-muted">{l.note}</p>
                   </li>
                 ))}

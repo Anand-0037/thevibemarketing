@@ -1,7 +1,12 @@
 /**
- * In-memory rate limit for auth actions.
+ * In-memory rate limit for auth + marketing private APIs.
  * Per-instance only (serverless may not share state) — still blocks
- * naive bursts on a warm instance. Prefer Supabase/edge rate limits in prod.
+ * naive bursts on a warm instance. Prefer Upstash/edge limits for multi-region prod.
+ *
+ * Buckets used elsewhere:
+ * - private-api:{userId} — general authenticated API (withOwnedStore)
+ * - marketing-expensive:{owner} — draft / campaign / agents / brand scrape
+ * - marketing-publish:{owner} — approve / live publish attempts
  */
 
 type Bucket = { count: number; resetAt: number };

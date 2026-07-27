@@ -1,35 +1,37 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AuthAwareActions } from "@/components/AuthAwareCta";
 import {
   MarketingPageHero,
   MarketingSection,
   MarketingSectionHeading,
 } from "@/components/MarketingPage";
+import { JsonLd } from "@/components/JsonLd";
 import { guides } from "@/content/guides";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, itemListJsonLd, pageMetadata, webPageJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Guides",
   path: "/guides",
   description:
-    "Playbooks for Reddit SaaS marketing, launches without a marketer, HITL autonomy, and VC Brain sourcing.",
+    "Playbooks for Reddit SaaS marketing, launches without a marketer, and HITL autonomy.",
 });
 
 const quick = [
   {
     href: "/get-started",
     title: "Get started",
-    blurb: "Onboarding → connect → Studio → HITL → optional VC Brain radar.",
+    blurb: "Onboarding → brand memory → Studio → HITL queue.",
   },
   {
-    href: "/vc-brain",
-    title: "VC Brain overview",
-    blurb: "What the sourcing head does and how it plugs into the marketing engine.",
+    href: "/demo",
+    title: "Product tour",
+    blurb: "Four steps from URL to approved draft.",
   },
   {
     href: "/app/onboarding",
     title: "Brand onboarding",
-    blurb: "URL → brand memory (Firecrawl when keyed, heuristic offline).",
+    blurb: "URL → brand memory through live Firecrawl extraction and model-backed facts.",
   },
   {
     href: "/app/studio",
@@ -41,15 +43,48 @@ const quick = [
 export default function GuidesPage() {
   return (
     <>
+      <JsonLd
+        data={[
+          webPageJsonLd({
+            type: "CollectionPage",
+            name: "vibemarketer guides",
+            path: "/guides",
+            description:
+              "Practical vibemarketer playbooks for Reddit SaaS marketing, launches without a marketer, and HITL autonomy.",
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Guides", path: "/guides" },
+          ]),
+          itemListJsonLd({
+            name: "vibemarketer playbooks",
+            path: "/guides",
+            items: guides.map((guide) => ({
+              name: guide.title,
+              path: `/guides/${guide.slug}`,
+              description: guide.excerpt,
+            })),
+          }),
+        ]}
+      />
       <MarketingPageHero
         narrow
         label="Docs"
         title="Guides"
-        lead="Practical paths through the product — marketing fleet and VC Brain."
+        lead="Practical paths through vibemarketer — brand memory, drafts, and HITL."
         actions={
-          <Link href="/get-started" className="btn-primary focus-ring text-base">
-            Get started
-          </Link>
+          <AuthAwareActions
+            guest={{
+              href: "/get-started",
+              label: "Get started",
+              className: "btn-primary focus-ring text-base",
+            }}
+            authed={{
+              href: "/app/cmo",
+              label: "Open app",
+              className: "btn-primary focus-ring text-base",
+            }}
+          />
         }
       />
 

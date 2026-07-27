@@ -2,8 +2,7 @@
  * Dodo Payments skeleton — Checkout Sessions API.
  * Docs: https://docs.dodopayments.com/api-reference/checkout-sessions/create
  *
- * When DODO_PAYMENTS_API_KEY + product IDs are unset, callers should fall back
- * to waitlist (honest: billing not live).
+ * Checkout is unavailable until DODO_PAYMENTS_API_KEY + product IDs are live.
  */
 
 export type BillingTier = "solo" | "startup";
@@ -30,12 +29,14 @@ export function billingReady(tier: BillingTier): boolean {
 
 export type CheckoutResult =
   | { ok: true; checkout_url: string; session_id?: string }
-  | { ok: false; error: string; fallback: "waitlist" };
+  | { ok: false; error: string };
 
 export async function createDodoCheckout(opts: {
   tier: BillingTier;
   email?: string;
   name?: string;
+  /** Supabase auth user id — stamped into metadata for webhook entitlement grant. */
+  ownerId?: string;
   returnUrl: string;
 }): Promise<CheckoutResult> {
   const key = process.env.DODO_PAYMENTS_API_KEY?.trim();
@@ -43,8 +44,7 @@ export async function createDodoCheckout(opts: {
   if (!key || !productId) {
     return {
       ok: false,
-      error: "Dodo billing not configured — join the waitlist",
-      fallback: "waitlist",
+      error: "Dodo billing is not configured",
     };
   }
 
@@ -52,7 +52,13 @@ export async function createDodoCheckout(opts: {
     const body: Record<string, unknown> = {
       product_cart: [{ product_id: productId, quantity: 1 }],
       return_url: opts.returnUrl,
-      metadata: { tier: opts.tier, product: "thevibemarketing" },
+      metadata: {
+        tier: opts.tier,
+        product: "vibemarketer",
+        // Public name for ops / webhooks
+        plan_label: opts.tier === "solo" ? "starter" : "growth",
+        ...(opts.ownerId ? { owner_id: opts.ownerId } : {}),
+      },
     };
     if (opts.email) {
       body.customer = {
@@ -85,7 +91,6 @@ export async function createDodoCheckout(opts: {
           data.message ||
           data.error ||
           `Dodo checkout HTTP ${res.status}`,
-        fallback: "waitlist",
       };
     }
 
@@ -98,7 +103,6 @@ export async function createDodoCheckout(opts: {
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Dodo checkout failed",
-      fallback: "waitlist",
     };
   }
 }

@@ -55,13 +55,6 @@ export async function GET(req: Request) {
               track_record: inferTrackRecord(f),
               coherence: new Set(signals.map((s) => s.source)).size >= 2 ? 70 : 45,
             });
-            void store.upsertFounder({
-              id: f.id,
-              name: f.name,
-              gravity: rescored,
-              founder_score: score.founder_score,
-              score_confidence: score.score_confidence,
-            });
             f = {
               ...f,
               gravity: rescored,

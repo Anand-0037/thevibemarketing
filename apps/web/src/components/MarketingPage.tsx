@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { CtaBox } from "@/components/CtaBox";
 
 const HERO_GLOW =
   "radial-gradient(ellipse 55% 70% at 85% 45%, var(--glow-accent), transparent 60%), radial-gradient(ellipse 40% 50% at 10% 80%, var(--glow-cool), transparent 55%)";
@@ -9,6 +10,8 @@ type HeroProps = {
   title: ReactNode;
   lead?: ReactNode;
   actions?: ReactNode;
+  /** Label above the CTA box (e.g. “Primary action”). */
+  actionsHint?: string;
   aside?: ReactNode;
   children?: ReactNode;
   /** Constrain copy column (guides, demo, blog). */
@@ -21,6 +24,7 @@ export function MarketingPageHero({
   title,
   lead,
   actions,
+  actionsHint = "What to do next",
   aside,
   children,
   narrow = false,
@@ -38,7 +42,9 @@ export function MarketingPageHero({
       ) : null}
       {children ? <div className="rise-delay-2 mt-6">{children}</div> : null}
       {actions ? (
-        <div className="rise-delay-2 mt-10 flex flex-wrap gap-3">{actions}</div>
+        <div className="rise-delay-2 mt-10">
+          <CtaBox hint={actionsHint}>{actions}</CtaBox>
+        </div>
       ) : null}
     </div>
   );
@@ -123,10 +129,7 @@ export function MarketingStepList({ steps }: { steps: readonly MarketingStep[] }
               {s.detail}
             </p>
             {s.href ? (
-              <Link
-                href={s.href}
-                className="mt-3 inline-block text-sm text-accent hover:underline focus-ring"
-              >
+              <Link href={s.href} className="step-cta focus-ring">
                 {s.cta ?? "Open"} →
               </Link>
             ) : null}

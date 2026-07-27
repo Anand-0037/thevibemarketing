@@ -5,6 +5,8 @@ import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { Nav } from "@/components/Nav";
 import { ThemeScript } from "@/components/ThemeScript";
+import { getAuthUser } from "@/lib/auth";
+import { isAuthBypassed } from "@/lib/supabase/config";
 import {
   KEYWORDS,
   SITE_DESCRIPTION,
@@ -12,7 +14,12 @@ import {
   SITE_TAGLINE,
   siteUrl,
 } from "@/lib/site";
-import { organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/seo";
+import {
+  marketingServiceJsonLd,
+  organizationJsonLd,
+  softwareJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
 import "./globals.css";
 
 const instrument = Instrument_Sans({
@@ -61,7 +68,11 @@ export const metadata: Metadata = {
     types: {
       "application/rss+xml": siteUrl("/rss.xml"),
       "application/x-ndjson": siteUrl("/feed.jsonl"),
-      "text/plain": siteUrl("/llms.txt"),
+      "application/json": siteUrl("/answers.json"),
+      "text/plain": [
+        { url: siteUrl("/llms.txt"), title: "llms.txt" },
+        { url: siteUrl("/site-index.txt"), title: "site-index.txt" },
+      ],
     },
   },
   openGraph: {
@@ -91,28 +102,34 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/mark-transparent.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-icon" }],
+    apple: [{ url: "/brand/apple-touch.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.webmanifest",
   other: {
     "llms-txt": siteUrl("/llms.txt"),
-    "ai-content": "llms.txt; llms-full.txt; feed.jsonl",
+    "ai-content": "llms.txt; llms-full.txt; feed.jsonl; answers.json; site-index.txt; sitemap.xml",
+    "geo": "generative engine optimization; answer engine optimization",
+    "product-category": "AI marketing operating system for SaaS founders",
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = isAuthBypassed() ? null : await getAuthUser();
+
   return (
     <html
       lang="en"
       className={`${instrument.variable} ${syne.variable} ${geistMono.variable} h-full`}
       suppressHydrationWarning
       data-theme="dark"
+      data-scroll-behavior="smooth"
     >
       <head>
         <ThemeScript />
@@ -122,6 +139,12 @@ export default function RootLayout({
           type="text/plain"
           href="/llms.txt"
           title="llms.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/site-index.txt"
+          title="site-index.txt"
         />
         <link
           rel="alternate"
@@ -135,16 +158,23 @@ export default function RootLayout({
           title="AEO feed"
           href="/feed.jsonl"
         />
+        <link
+          rel="alternate"
+          type="application/json"
+          title="AEO answers"
+          href="/answers.json"
+        />
         <JsonLd data={organizationJsonLd()} />
         <JsonLd data={websiteJsonLd()} />
         <JsonLd data={softwareJsonLd()} />
+        <JsonLd data={marketingServiceJsonLd()} />
       </head>
       <body className="flex min-h-full flex-col antialiased">
         <a href="#main-content" className="skip-link focus-ring">
           Skip to main content
         </a>
         <AuthBypassBanner />
-        <Nav />
+        <Nav initialAuthed={Boolean(user)} initialUserEmail={user?.email ?? null} />
         <main id="main-content" className="flex-1">
           {children}
         </main>

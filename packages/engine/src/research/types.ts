@@ -50,5 +50,5 @@ export type ResearchDossier = {
   partial: boolean;
   latency_ms: number;
   synthesized_at: string;
-  synthesis: "openai" | "heuristic" | "skipped";
+  synthesis: "openai" | "skipped";
 };

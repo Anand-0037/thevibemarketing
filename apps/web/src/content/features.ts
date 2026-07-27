@@ -21,18 +21,18 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "agent-fleet",
-    name: "Agent fleet",
-    tagline: "Roles across the marketing loop.",
-    body: "Strategist, Content, Distributor, SEO/AEO, Growth, and Analyst — specialized agents for goals, drafts, publishing, rankings, loops, and learning.",
+    name: "Agent fleet (AI CMO wall)",
+    tagline: "Named workflows. HITL control. Provider-confirmed publishing.",
+    body: "Named workflows with honest status: brand intake, social drafts, Reddit/HN/SEO (live); Writer/GEO/publish/analyst (partial); experimental agents later. Cursor-like HITL + saved brand context.",
     href: "/product#fleet",
-    hrefLabel: "See roles",
+    hrefLabel: "See fleet",
     status: "live",
   },
   {
     id: "operating-loop",
     name: "Operating loop",
-    tagline: "SENSE → THINK → CREATE → GATE → ACT → LEARN",
-    body: "One closed loop from channel scan to outcome learning. Not a calendar. Not a chat box. Agents move work through the stages with memory at every step.",
+    tagline: "CONTEXT → PLAN → CREATE → APPROVE → PUBLISH → REVIEW",
+    body: "One focused loop from product context to approved campaigns and reviewable outcomes. Not a calendar. Not a chat box. Work moves through clear stages with human approval.",
     href: "/product#loop",
     hrefLabel: "How it works",
     status: "live",
@@ -41,7 +41,7 @@ export const FEATURES: Feature[] = [
     id: "studio",
     name: "Studio",
     tagline: "Drafts from brand context.",
-    body: "Generate a 7-day campaign brief plus channel-ready posts from memory — X, LinkedIn, Reddit. Edit in the HITL queue before anything queues to publish. Google Business Profile coming soon.",
+    body: "Generate a 7-day campaign brief plus channel-ready posts from memory — X, LinkedIn, Reddit. Edit in the HITL queue before live publish. L2 can auto-queue X/LinkedIn drafts only. Google Business Profile coming soon.",
     href: "/app/studio",
     hrefLabel: "Open Studio",
     status: "app",
@@ -58,8 +58,8 @@ export const FEATURES: Feature[] = [
   {
     id: "connectors",
     name: "Connectors",
-    tagline: "Channels you can connect.",
-    body: "Start with Reddit (easiest founder/MSME channel), then X and LinkedIn via managed OAuth. Coming soon stays labeled — Google Business Profile included.",
+    tagline: "OAuth when you need it.",
+    body: "Reddit, X, and LinkedIn via managed OAuth. Approve first — publish only after a real provider post ID. Google Business Profile coming soon (labeled).",
     href: "/app/connectors",
     hrefLabel: "Connect accounts",
     status: "live",
@@ -77,54 +77,58 @@ export const FEATURES: Feature[] = [
     id: "sandbox-security",
     name: "Sandboxed execution",
     tagline: "Untrusted data never becomes a tool call.",
-    body: "Scraped pages, decks, and skill files are stored and cited as data. Publishing runs under rate limits with HITL gates — brand safety is the product.",
+    body: "Scraped pages, decks, and skill files are stored and cited as data. HITL gates every live post; generation and approve paths are rate-limited per workspace so one session cannot drain providers.",
     href: "/product#trust",
     hrefLabel: "Security posture",
     status: "live",
   },
-  {
-    id: "vc-brain",
-    name: "VC Brain",
-    tagline: "Same engine. Sourcing head.",
-    body: "Find and screen founders by distribution gravity — 3-axis scoring, Trust Scores, evidence memos, and a clear $100K recommendation.",
-    href: "/vc-brain",
-    hrefLabel: "Explore VC Brain",
-    status: "addon",
-  },
-  {
-    id: "gravity-audit",
-    name: "Distribution Gravity Audit",
-    tagline: "Free score. Same math.",
-    body: "Paste a GitHub handle or public signals and get a cold-start-friendly gravity score from the same engine that powers VC Brain. Not investment advice.",
-    href: "/tools/gravity-audit",
-    hrefLabel: "Run free audit",
-    status: "live",
-  },
 ];
 
+/**
+ * Compact fleet roles for homepage.
+ * Full AI-CMO-style wall (Okara parity list) lives in @vibe/engine MARKETING_AGENT_CATALOG
+ * and GET /api/marketing/agents.
+ */
 export const FLEET_ROLES = [
+  {
+    role: "Brand + Memory",
+    job: "URL → durable brand memory (core / semantic / episodic).",
+  },
   {
     role: "Strategist",
     job: "Owns goals, calendar, and channel mix from brand memory.",
   },
   {
-    role: "Content",
-    job: "Drafts posts, threads, and landing copy in your voice.",
+    role: "Writer + Social",
+    job: "Long-form and channel drafts (X · LinkedIn · Reddit) in your voice.",
   },
   {
-    role: "Distributor",
-    job: "Publishes and engages within platform rate limits.",
+    role: "Reddit / HN",
+    job: "Opportunity loops: find threads, draft helpful replies for HITL.",
   },
   {
-    role: "SEO / AEO",
-    job: "Earns rankings and LLM citations — structure, guides, llms.txt.",
+    role: "SEO + GEO",
+    job: "Keyword drafts, rankings, and LLM citations (llms.txt / schema).",
   },
   {
-    role: "Growth",
-    job: "Runs loops: Reddit opportunities, launches, waitlist funnels.",
+    role: "Distributor + HITL",
+    job: "Approve → publish only with real provider post IDs.",
   },
   {
     role: "Analyst",
-    job: "Reports what worked; feeds LEARN so context never resets.",
+    job: "Reviews published work; GSC/GA and attribution next.",
+  },
+  {
+    role: "UGC / Video (later)",
+    job: "Short-form briefs and clips are planned after the core loop is proven.",
   },
 ] as const;
+
+/** Status labels for agent wall UI */
+export const AGENT_STATUS_LABEL: Record<string, string> = {
+  live: "Live",
+  partial: "Partial",
+  next: "Building next",
+  soon: "Soon",
+  later: "Later",
+};

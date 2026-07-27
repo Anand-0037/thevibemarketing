@@ -54,6 +54,7 @@ export {
 } from "./scoring/track-record";
 
 export { firstPassScreen, type FirstPassResult } from "./scoring/first-pass";
+export { sectorMatchesThesis } from "./scoring/sector-match";
 
 export {
   thesisFit,
@@ -81,6 +82,17 @@ export {
   polishMemoSections,
   type PolishMemoOptions,
 } from "./adapters/openai";
+
+export {
+  isXaiConfigured,
+  xaiHealth,
+  generateImage,
+  analyzeImage,
+  buildSocialCreativePrompt,
+  type XaiImageResult,
+  type XaiVisionResult,
+  type XaiHealth,
+} from "./adapters/xai";
 
 export { startRun, step, stepLocal, type TraceRun } from "./trace";
 
@@ -118,6 +130,46 @@ export {
 } from "./agents/lanes";
 
 export {
+  MARKETING_AGENT_CATALOG,
+  marketingAgentsByStatus,
+  marketingAgentSummary,
+  type MarketingAgentDef,
+  type MarketingAgentStatus,
+} from "./agents/marketing-catalog";
+
+export {
+  runRedditAgent,
+  type RedditAgentResult,
+  type RedditOpportunity,
+} from "./agents/reddit-agent";
+
+export {
+  runSeoAgent,
+  type SeoAgentResult,
+  type SeoBlogDraft,
+  type SeoKeyword,
+} from "./agents/seo-agent";
+
+export {
+  runHnAgent,
+  type HnAgentResult,
+  type HnOpportunity,
+  type HnStory,
+} from "./agents/hn-agent";
+
+export {
+  runSiteScorecard,
+  type SiteScorecard,
+  type ScoreCheck,
+} from "./research/site-scorecard";
+
+export {
+  fetchPageSpeed,
+  isPageSpeedConfigured,
+  type PageSpeedScores,
+} from "./research/pagespeed";
+
+export {
   normalizeThesis,
   normalizeOwnershipTarget,
   ownershipToPercent,
@@ -147,7 +199,19 @@ export {
 export {
   syncBrandMemory,
   recallBrandMemory,
+  writeBrandEpisode,
   containerForBrand,
+  brandContainerForWorkspace,
+  buildCoreBrandLines,
+  buildSemanticFactPayload,
+  brandSlug,
+  taskSearchQuery,
   type BrandMemoryInput,
+  type BrandFact,
+  type BrandFactStatus,
   type BrandSyncResult,
+  type BrandRecallTask,
+  type BrandRecallResult,
+  type BrandEpisodeKind,
+  type BrandEpisodeResult,
 } from "./memory/brand-memory";

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbJsonLd, pageMetadata, webApplicationJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Distribution Gravity Audit",
@@ -14,5 +15,24 @@ export default function GravityAuditLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <JsonLd
+        data={[
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Distribution Gravity Audit", path: "/tools/gravity-audit" },
+          ]),
+          webApplicationJsonLd({
+            name: "Distribution Gravity Audit",
+            path: "/tools/gravity-audit",
+            description:
+              "Free vibemarketer tool that scores public distribution gravity from live GitHub signals using deterministic math.",
+            applicationCategory: "BusinessApplication",
+          }),
+        ]}
+      />
+      {children}
+    </>
+  );
 }

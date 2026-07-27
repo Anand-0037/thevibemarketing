@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { currentOwnerId } from "@/lib/brand-memory-context";
 import {
   getMarketingStore,
   type AutonomyLevel,
 } from "@/lib/marketing-store";
+import { assertFeature } from "@/lib/payments/feature-gates";
 import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
@@ -10,9 +12,9 @@ export const runtime = "nodejs";
 const LEVELS = new Set<AutonomyLevel>(["L1", "L2", "L3"]);
 
 const NOTES: Record<AutonomyLevel, string> = {
-  L1: "All drafts pending HITL. Approve queues publish (needs connected account).",
-  L2: "Low-risk (X/LinkedIn daily) auto-queue when connected. Reddit/opportunity stay pending.",
-  L3: "All new drafts auto-queue when connected. HITL still available.",
+  L1: "All drafts pending HITL. Approve queues for publish (connected account needed for live).",
+  L2: "X/LinkedIn multi-channel drafts auto-queue (not publish). Reddit/SEO/HN stay pending HITL. Requires Growth+.",
+  L3: "Coming soon — L3 auto-publish is blocked until a dedicated live provider path is enabled.",
 };
 
 export async function GET() {
@@ -40,8 +42,27 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    const level = body.autonomy as AutonomyLevel;
+
+    // L2 is a Growth+ feature; L3 remains product-blocked even on Pro
+    if (level === "L2") {
+      const gated = await assertFeature(currentOwnerId(), "l2_autonomy");
+      if (!gated.ok) return gated.response;
+    }
+    if (level === "L3") {
+      return NextResponse.json(
+        {
+          error:
+            "L3 auto-publish is not available yet. Stay on L1 or L2 (Growth+).",
+          code: "L3_BLOCKED",
+        },
+        { status: 403 },
+      );
+    }
+
     const store = getMarketingStore();
-    const autonomy = await store.setAutonomy(body.autonomy as AutonomyLevel);
+    const autonomy = await store.setAutonomy(level);
     return NextResponse.json({
       autonomy,
       note: NOTES[autonomy],

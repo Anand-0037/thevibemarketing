@@ -1,10 +1,10 @@
 const STEPS = [
-  { key: "SENSE", desc: "Scan channels & brand signals" },
-  { key: "THINK", desc: "Strategy from persistent memory" },
+  { key: "CONTEXT", desc: "Save product, ICP, voice, and proof" },
+  { key: "PLAN", desc: "Shape a focused campaign from brand context" },
   { key: "CREATE", desc: "Draft posts, threads, assets" },
-  { key: "GATE", desc: "HITL quality & brand check" },
-  { key: "ACT", desc: "Publish after approval" },
-  { key: "LEARN", desc: "Feed outcomes back in" },
+  { key: "APPROVE", desc: "HITL quality and brand check" },
+  { key: "PUBLISH", desc: "Provider-confirmed publishing" },
+  { key: "REVIEW", desc: "Review what shipped and what to change" },
 ] as const;
 
 export function LoopDiagram() {

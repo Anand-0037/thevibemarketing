@@ -29,8 +29,8 @@ export function WaitlistForm({
     (source === "newsletter"
       ? "Subscribe"
       : source === "pricing"
-        ? "Get early access"
-        : "Join waitlist");
+        ? "Email me when billing opens"
+        : "Email me drops");
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

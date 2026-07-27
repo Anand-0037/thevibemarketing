@@ -38,6 +38,18 @@ export async function POST(
         maxScrapes: Number(process.env.DEEP_RESEARCH_MAX_SCRAPES) || 3,
       });
 
+      if (dossier.synthesis !== "openai") {
+        return NextResponse.json(
+          {
+            ok: false,
+            run_id,
+            error: dossier.open_questions[0] ?? "Live research synthesis is unavailable.",
+            provider_status: dossier.provider_status,
+          },
+          { status: 502 },
+        );
+      }
+
       return NextResponse.json({
         ok: true,
         run_id,

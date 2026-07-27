@@ -21,6 +21,7 @@ export async function fetchArxivAiDetailed(
     const url = `https://export.arxiv.org/api/query?search_query=${q}&sortBy=submittedDate&sortOrder=descending&max_results=${limit}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "thevibemarketing-vcbrain" },
+      signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) {
       return {

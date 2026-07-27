@@ -95,6 +95,39 @@ const withDeck = firstPassScreen({
   requireDeck: true,
 });
 assert(withDeck.pass, "inbound with deck link passes first-pass");
+
+// Sector outside thesis must NOT hard-fail first-pass (memo still runs → NO/WATCH).
+const sectorMissStillRuns = firstPassScreen({
+  founder: {
+    ...inboundFounder,
+    links: ["https://vibemarketer.fun/"],
+    bio: "AI marketing for founders",
+  },
+  product: {
+    ...inboundProduct,
+    name: "vibemarketer",
+    oneliner: "Paste your product URL. Get a brand brief.",
+    sector: "marketing",
+  },
+  thesis: {
+    sectors: ["AI infra", "developer tools", "enterprise SaaS", "agentic software"],
+    stage: "pre-seed",
+    geo: "global",
+    check_size: 100_000,
+    ownership_target: 0.1,
+    risk: "moderate",
+  },
+  requireDeck: true,
+});
+assert(
+  sectorMissStillRuns.pass,
+  "inbound with materials + out-of-thesis sector still passes first-pass",
+);
+assert(
+  sectorMissStillRuns.checks.some((c) => c.name === "thesis_sector" && !c.ok),
+  "thesis_sector check still flags soft miss",
+);
+
 // --- thesis fit match / miss ---
 const thesis: Thesis = {
   sectors: ["AI infra", "developer tools"],

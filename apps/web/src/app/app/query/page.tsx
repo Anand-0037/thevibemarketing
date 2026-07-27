@@ -143,7 +143,7 @@ export default function QueryPage() {
         {hits.map((h) => (
           <li key={h.founder.id}>
             <Link
-              href={`/app/founders/${h.founder.id}`}
+              href={`/app/founders/${encodeURIComponent(h.founder.id)}`}
               className="panel focus-ring flex flex-col gap-1 p-4 hover:border-accent/40 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>

@@ -34,11 +34,11 @@ export function FeatureGrid({
           className={
             compact
               ? "scroll-mt-24 py-8 first:pt-0"
-              : "scroll-mt-24 bg-bg-panel p-6 transition-colors hover:bg-bg-elevated"
+              : "group scroll-mt-24 bg-bg-panel p-6 transition-all duration-200 hover:-translate-y-1 hover:bg-bg-elevated hover:shadow-[0_18px_38px_-28px_var(--shadow-soft)]"
           }
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-display text-xl font-semibold tracking-tight">
+            <h3 className="font-display text-xl font-semibold tracking-tight transition-colors group-hover:text-accent">
               {f.name}
             </h3>
             <span className="font-mono text-[11px] uppercase tracking-widest text-accent">
@@ -48,10 +48,7 @@ export function FeatureGrid({
           <p className="mt-2 text-base font-medium text-ink/90">{f.tagline}</p>
           <p className="mt-2 text-base leading-relaxed text-muted">{f.body}</p>
           {f.href ? (
-            <Link
-              href={f.href}
-              className="mt-4 inline-block text-sm text-accent hover:underline focus-ring"
-            >
+            <Link href={f.href} className="step-cta focus-ring mt-4">
               {f.hrefLabel ?? "Open"} →
             </Link>
           ) : null}

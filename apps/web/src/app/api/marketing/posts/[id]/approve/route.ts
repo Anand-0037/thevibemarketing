@@ -1,25 +1,33 @@
-import { NextResponse } from "next/server";
-import { getMarketingStore } from "@/lib/marketing-store";
+import {
+  approveMarketingPost,
+  approveResultToResponse,
+} from "@/lib/marketing-approve";
 import { withMarketingStore } from "@/lib/with-marketing";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type Params = { params: Promise<{ id: string }> };
 
-/** HITL approve → queue publish (live OAuth when account connected). */
-export async function POST(_req: Request, { params }: Params) {
+/**
+ * HITL approve:
+ * 1) queue the post in marketing_state
+ * 2) if Composio has an ACTIVE connection for the platform, attempt live publish
+ * 3) only mark `published` when the provider returns a post id
+ *
+ * Never pretends publish succeeded.
+ */
+export async function POST(req: Request, { params }: Params) {
   return withMarketingStore(async () => {
     const { id } = await params;
-    const store = getMarketingStore();
-    const post = await store.approvePost(id);
-    if (!post) {
-      return NextResponse.json({ error: "post not found" }, { status: 404 });
+    let body: { subreddit?: string; flairId?: string; queueOnly?: boolean } = {};
+    try {
+      body = (await req.json()) as typeof body;
+    } catch {
+      body = {};
     }
-    const log = (await store.listPublishLog(5)).find((l) => l.post_id === post.id);
-    return NextResponse.json({
-      post,
-      publish_log: log ?? null,
-      note: "Approved — queued for publish. Connect the channel for live social API.",
-    });
+
+    const outcome = await approveMarketingPost(id, body);
+    return approveResultToResponse(outcome);
   });
 }

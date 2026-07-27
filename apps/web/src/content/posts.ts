@@ -36,6 +36,11 @@ export type Post = {
   blocks?: PostBlock[];
   tag?: string;
   author?: string;
+  /**
+   * When false, post stays routable but is hidden from blog index / “more notes”.
+   * Use for hackathon-era archive that would confuse the company story.
+   */
+  listed?: boolean;
 };
 
 function blocksToBody(blocks: PostBlock[]): string[] {
@@ -57,13 +62,16 @@ export function postBlocks(post: Post): PostBlock[] {
   return post.body.map((text) => ({ type: "p" as const, text }));
 }
 
-const ENGINE_TWO_HEADS = `
+const ENGINE_MARKETING = `
 flowchart TB
-  IN[Ingest public signals] --> MEM[Memory never resets]
-  MEM --> REA[Reason scores and Trust]
-  REA --> TR[Traces step evidence]
-  REA --> MKT[Marketing head HITL publish]
-  REA --> VC[VC Brain head 100K memo]
+  URL[Product URL] --> BR[Brand memory]
+  BR --> PLAN[Campaign + channel plan]
+  PLAN --> DR[Drafts X · LinkedIn · Reddit]
+  DR --> HITL[HITL queue]
+  HITL --> Q[Queued]
+  Q --> PUB[Published only with provider ID]
+  PUB --> LEARN[Report · learn]
+  LEARN --> PLAN
 `.trim();
 
 const DUAL_WRITE = `
@@ -82,33 +90,6 @@ flowchart LR
   G --> A[ACT]
   A --> L[LEARN]
   L --> S
-`.trim();
-
-const VC_SPINE = `
-sequenceDiagram
-  participant R as Radar
-  participant I as Identify
-  participant S as Screen
-  participant D as Diligence
-  participant M as Memo
-  R->>I: GH · HN · arXiv
-  I->>S: Founder Score + gravity
-  Note over S: 3 axes · never averaged
-  S->>D: claims + Trust
-  D->>M: YES / NO / WATCH + gaps
-`.trim();
-
-const THREE_AXIS = `
-flowchart TB
-  FS[Founder Score ledger] --> A1[Axis 1 · Team]
-  FS --> A2[Axis 2 · Market]
-  FS --> A3[Axis 3 · Traction]
-  A1 --> DEC{Decision support}
-  A2 --> DEC
-  A3 --> DEC
-  DEC --> YES[YES]
-  DEC --> NO[NO]
-  DEC --> WATCH[WATCH]
 `.trim();
 
 const MEMORY_GRAPH = `
@@ -134,92 +115,91 @@ flowchart LR
 
 export const posts: Post[] = [
   {
-    title: "Inside the architecture: one engine, two heads",
+    title: "Inside the architecture: URL to approved draft",
     slug: "architecture-one-engine-two-heads",
     date: "2026-07-19",
     tag: "architecture",
     author: DOGFOOD_OPERATOR.name,
     excerpt:
-      "How vibemarketer shares Memory, scoring, and traces between the marketing fleet and VC Brain — with diagrams.",
+      "How vibemarketer turns a product URL into brand memory, multi-channel drafts, and a HITL queue — with diagrams. No fake publish.",
     body: [],
     blocks: [
       {
         type: "p",
-        text: "Most products bolt AI onto a calendar or a CRM. We built a shared engine first: ingest public signal, persist Memory, reason with deterministic scores, and leave an agent trace. Then we attached two heads — marketing for SaaS founders, VC Brain for investors.",
+        text: "Most tools bolt AI onto a calendar or a CRM. We built the loop first: paste a product URL, extract brand memory, plan channels, draft posts, and hold every item for human approval before anything can publish.",
       },
       {
         type: "callout",
         tone: "accent",
-        text: "Challenge 02 judges care about the sourcing head. The company bet is that the same distribution math that finds founders also builds distribution for them.",
+        text: "Company product is vibemarketer — Cursor for marketing. The bet is simple: founders who can ship still need distribution, and distribution needs memory + HITL, not autopilot slop.",
       },
       { type: "h2", text: "System map" },
       {
         type: "mermaid",
-        title: "Mermaid · shared engine",
+        title: "Mermaid · marketing loop",
         caption:
-          "Ingest and Memory are shared. Heads only differ at the last mile: publish a draft vs write a $100K decision-support memo.",
-        code: ENGINE_TWO_HEADS,
+          "One path. Published only after a connected provider returns a real post ID.",
+        code: ENGINE_MARKETING,
       },
       {
         type: "layers",
-        title: "Brief pillars → product layers",
-        caption:
-          "Mapped from The VC Brain brief: Memory · Intelligence · Experience. Marketing reuses the same stack with a HITL gate.",
+        title: "Product layers",
+        caption: "Memory · intelligence · experience for founder GTM.",
         layers: [
           {
             name: "Memory",
             detail:
-              "Signals, Founder Score history, brand context, claims. Append-only where it matters — Postgres dual-write when enabled.",
+              "Brand core, semantic, and episodic memory from your site — multi-tenant, Supabase as production truth.",
             accent: true,
           },
           {
             name: "Intelligence",
             detail:
-              "Distribution gravity, 3-axis screening (never averaged), per-claim Trust, thesis fit, conviction thresholds.",
+              "Campaign briefs, Reddit/HN/SEO agents, and channel drafts grounded in brand context when a live model is configured.",
           },
           {
             name: "Experience",
             detail:
-              "Radar → compare → screen theater → memo for investors. Studio → HITL queue for the marketing fleet.",
+              "CMO desk → Studio → HITL queue → report. Fail closed if providers are down — no template drafts pretending to be real.",
           },
         ],
       },
-      { type: "h2", text: "Request path and persistence" },
+      { type: "h2", text: "Persistence" },
       {
         type: "p",
-        text: "Demo mode can run entirely in-process. When DATABASE_URL is set, the same write path dual-writes to Postgres so Radar, memos, and traces survive restarts — without inventing a second source of truth for the UI.",
+        text: "Production marketing state lives in Supabase per workspace. We do not invent analytics or mark posts published without a provider confirmation.",
       },
       {
         type: "mermaid",
-        title: "Mermaid · dual-write",
+        title: "Mermaid · dual-write (optional tooling)",
         caption:
-          "Store stays the fast read path for the hackathon demo. Postgres is the durable ledger when configured.",
+          "Marketing SaaS path is marketing_state. Other ledgers are optional infrastructure — not the company story.",
         code: DUAL_WRITE,
       },
       {
         type: "pipeline",
-        title: "Pipeline · investor spine",
-        caption: "Five screens judges can walk without a script.",
+        title: "Pipeline · founder walkthrough",
+        caption: "What a stranger should feel in under a minute.",
         steps: [
-          { label: "Identify", detail: "GH · HN · arXiv" },
-          { label: "Score", detail: "Gravity + Founder Score" },
-          { label: "Screen", detail: "3 axes, never averaged" },
-          { label: "Diligence", detail: "Claims + Trust probes" },
-          { label: "Memo", detail: "$100K YES / NO / WATCH" },
+          { label: "URL", detail: "Public homepage" },
+          { label: "Brand", detail: "Memory + scorecard" },
+          { label: "Drafts", detail: "X · LinkedIn · Reddit" },
+          { label: "HITL", detail: "Edit · approve · reject" },
+          { label: "Publish", detail: "Real provider ID only" },
         ],
       },
-      { type: "h2", text: "Why this shape wins the hackathon and the company" },
+      { type: "h2", text: "Why this shape" },
       {
         type: "ol",
         items: [
-          "Sourcing depth lives in connectors + Memory — not in a single LLM call.",
-          "Trust is claim-level with contradictions; memos flag Cap table: not disclosed instead of inventing numbers.",
-          "The marketing head dogfoods the same loop: drafts, gates, learns.",
+          "Brand context compounds — agents do not start from zero every session.",
+          "HITL is the product: audiences filter AI spam; we never fake published.",
+          "Depth lives in connectors + memory + review, not a single clever prompt.",
         ],
       },
       {
         type: "p",
-        text: "If you only remember one picture from this post, remember the fork after Reason: same evidence spine, two action vocabularies.",
+        text: "If you only remember one picture: URL → memory → drafts → approve → real publish.",
       },
     ],
   },
@@ -227,73 +207,29 @@ export const posts: Post[] = [
     title: "We built a VC Brain in 18 hours — then put it inside the product",
     slug: "vc-brain-in-18-hours",
     date: "2026-07-18",
-    tag: "build-in-public",
+    tag: "archive",
     author: DOGFOOD_OPERATOR.name,
+    listed: false,
     excerpt:
-      "Hack-Nation Challenge 02 was the wedge. The company is Cursor for marketing — same engine, two heads.",
+      "Archive: a hackathon-era sourcing demo. The company product is vibemarketer (marketing loop), not investor tooling.",
     body: [],
     blocks: [
       {
-        type: "p",
-        text: "Hackathons reward a sharp demo. We shipped VC Brain: thesis → multi-source ingest → distribution gravity → 3-axis screen (never averaged) → per-claim Trust → $100K memo with traces. Judges can walk the spine in five minutes.",
-      },
-      {
-        type: "mermaid",
-        title: "Mermaid · investor path",
-        caption:
-          "Live Identify feeds Memory. Screening and Diligence are separate steps — Trust can kill a YES before the memo.",
-        code: VC_SPINE,
+        type: "callout",
+        tone: "warn",
+        text: "Archive note (2026): this post describes a Challenge 02 hackathon wedge. vibemarketer’s company product is the founder marketing loop — paste URL, get drafts, approve, publish for real. The sourcing demo remains available under /vc-brain for curious users, not as the homepage story.",
       },
       {
         type: "p",
-        text: "The real bet is bigger. The same ingest → memory → reason → act loop that sources founders can manufacture distribution for SaaS. Marketing fleet creates attention; VC Brain measures it.",
-      },
-      { type: "h2", text: "Three axes, never averaged" },
-      {
-        type: "mermaid",
-        title: "Mermaid · decision support",
-        caption:
-          "Team, market, and traction stay separate so a charismatic pitch cannot wash out a weak market.",
-        code: THREE_AXIS,
-      },
-      {
-        type: "layers",
-        title: "What ships in the 24h demo",
-        layers: [
-          {
-            name: "Identify",
-            detail: "GitHub · Hacker News · arXiv only. No fabricated Product Hunt cast.",
-            accent: true,
-          },
-          {
-            name: "Conviction",
-            detail:
-              "When gravity / Founder Score crosses threshold, auto-screen (capped) so the fund feels like it runs itself.",
-          },
-          {
-            name: "Decision support",
-            detail:
-              "$100K YES/NO/WATCH with Appendix gaps and a due diligence log — not an automated wire.",
-          },
-        ],
-      },
-      {
-        type: "pipeline",
-        title: "Pipeline · judge walkthrough",
-        steps: [
-          { label: "Thesis", detail: "Set what you fund" },
-          { label: "Radar", detail: "Live public signal" },
-          { label: "Compare", detail: "Side-by-side axes" },
-          { label: "Memo", detail: "Traceable decision" },
-        ],
+        text: "Hackathons reward a sharp demo. We shipped an experimental sourcing path: thesis → multi-source ingest → gravity-style scoring → screening → evidence memo. Useful as engineering archaeology — not what we lead with for YC or customers.",
       },
       {
         type: "p",
-        text: `I'm dogfooding it as ${DOGFOOD_OPERATOR.name} — portfolio at 0xanand.tech, building in public on X. The fleet drafts; HITL gates; the blog is proof the product works on itself.`,
+        text: "What survived into the company: shared memory discipline, fail-closed providers, HITL gates, and dogfooding the product on ourselves. What did not become the lead story: positioning vibemarketer as two equal products.",
       },
       {
         type: "p",
-        text: "If you are a technical founder drowning in 'just post more,' start at Gravity Audit, then open the app. Distribution is infrastructure. We're building the OS.",
+        text: `If you are a technical founder drowning in “just post more,” start at /get-started or the app onboarding — not the archive path. — ${DOGFOOD_OPERATOR.name}`,
       },
     ],
   },
@@ -340,7 +276,7 @@ export const posts: Post[] = [
       },
       {
         type: "p",
-        text: "Subscribe at /newsletter. Prefer product access? Join the waitlist. Either way you are building owned attention, not renting someone else's feed.",
+        text: "Subscribe at /newsletter. Prefer to ship product? Start free at /signup. Either way you are building owned attention, not renting someone else's feed.",
       },
     ],
   },
@@ -348,10 +284,11 @@ export const posts: Post[] = [
     title: "How cold-start founders get found",
     slug: "how-cold-start-founders-get-found",
     date: "2026-07-16",
-    tag: "vc-brain",
+    tag: "archive",
     author: DOGFOOD_OPERATOR.name,
+    listed: false,
     excerpt:
-      "Pedigree scrapers miss the people who matter. Distribution gravity is how you score founders before the network does.",
+      "Archive: distribution gravity notes from the sourcing experiment. Company product remains the marketing loop.",
     body: [],
     blocks: [
       {
@@ -401,12 +338,9 @@ export const posts: Post[] = [
         text: "When track record is missing, weight redistributes into gravity / cadence / coherence — we do not punish first-timers with a zero. That is cold-start mode, labeled in the UI.",
       },
       {
-        type: "p",
-        text: "That same public-surface engine powers VC Brain — ingest, memory, evidence, then an action head that writes a memo instead of a post. One engine, swappable heads.",
-      },
-      {
-        type: "p",
-        text: "If capital should flow on merit, the system has to see founders the way the market already does: by who is earning attention, not who already raised.",
+        type: "callout",
+        tone: "muted",
+        text: "Archive: this note belongs to an experimental sourcing path. For the product we sell, open /get-started — marketing loop, not investor tooling.",
       },
     ],
   },
@@ -513,24 +447,25 @@ export const posts: Post[] = [
       },
       {
         type: "mermaid",
-        title: "Mermaid · one loop, two products",
+        title: "Mermaid · marketing loop",
         caption:
-          "vibemarketer manufactures attention. VC Brain measures who already earns it. Same Memory spine.",
-        code: ENGINE_TWO_HEADS,
+          "vibemarketer manufactures attention with brand memory and HITL — not autopilot spam.",
+        code: ENGINE_MARKETING,
       },
       {
         type: "pipeline",
-        title: "Pipeline · from thesis to habit",
+        title: "Pipeline · from URL to habit",
         steps: [
-          { label: "Sense", detail: "Public surfaces" },
-          { label: "Decide", detail: "ICP + gravity" },
-          { label: "Act", detail: "HITL-gated" },
-          { label: "Remember", detail: "Brand + founder ledger" },
+          { label: "URL", detail: "Product context" },
+          { label: "Memory", detail: "Brand voice" },
+          { label: "Draft", detail: "Multi-channel" },
+          { label: "Gate", detail: "HITL" },
+          { label: "Publish", detail: "Real only" },
         ],
       },
       {
         type: "p",
-        text: "That is why we built vibemarketer as an agent fleet: strategy, creation, distribution, and learning in one loop with memory that does not reset every session. Schedulers move posts. Agents own outcomes.",
+        text: "That is why we built vibemarketer as a marketing OS: strategy, creation, distribution, and learning in one loop with memory that does not reset every session. Schedulers alone move posts. We own the loop with you in the gate.",
       },
       {
         type: "p",
@@ -555,6 +490,9 @@ export function getAllSlugs(): string[] {
   return posts.map((p) => p.slug);
 }
 
-export function postsSorted(): Post[] {
-  return [...posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+export function postsSorted(opts?: { includeUnlisted?: boolean }): Post[] {
+  const list = opts?.includeUnlisted
+    ? posts
+    : posts.filter((p) => p.listed !== false);
+  return [...list].sort((a, b) => (a.date < b.date ? 1 : -1));
 }

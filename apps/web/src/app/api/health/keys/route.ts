@@ -4,6 +4,7 @@ import {
   isSupermemoryConfigured,
   openaiChatHealth,
   searchMemories,
+  xaiHealth,
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -144,7 +145,7 @@ async function checkSupermemory(): Promise<KeyRow> {
   }
   const r = await searchMemories({
     q: "brand",
-    containerTag: "org_demo:brand_thevibemarketing",
+    containerTag: "system:healthcheck",
     limit: 1,
   });
   return {
@@ -160,7 +161,7 @@ export async function GET() {
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
 
-  const [openai, firecrawl, github, tavily, supermemory, composio, e2b] =
+  const [openai, firecrawl, github, tavily, supermemory, composio, e2b, xai] =
     await Promise.all([
       checkOpenAI(),
       checkFirecrawl(),
@@ -183,6 +184,14 @@ export async function GET() {
           ? "sandboxes list OK"
           : [h.error, h.hint].filter(Boolean).join(" — "),
       })),
+      xaiHealth().then((h) => ({
+        key: "XAI_API_KEY",
+        configured: h.configured,
+        ok: h.ok,
+        detail: h.ok
+          ? `${h.detail} · Grok Imagine + Vision`
+          : h.detail || "failed",
+      })),
     ]);
 
   const keys = [
@@ -193,6 +202,7 @@ export async function GET() {
     supermemory,
     composio,
     e2b,
+    xai,
   ];
   const pass = keys.filter((k) => k.ok).length;
   const fail = keys.filter((k) => k.configured && !k.ok).length;

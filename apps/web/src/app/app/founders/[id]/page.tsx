@@ -127,7 +127,9 @@ export default function FounderDetailPage() {
     });
     // Canonicalize short slugs (/openclaw → /live_github_openclaw) so traces/memo links work.
     if (body.canonical_id && body.canonical_id !== id) {
-      router.replace(`/app/founders/${body.canonical_id}`);
+      router.replace(
+        `/app/founders/${encodeURIComponent(body.canonical_id)}`,
+      );
     }
   }, [id, router]);
 
@@ -149,6 +151,7 @@ export default function FounderDetailPage() {
     setScreenBusy(true);
     setTheaterDone(false);
     setError(null);
+    let memoReady = false;
     try {
       const res = await fetch(`/api/screen/${id}`, { method: "POST" });
       const body = (await res.json()) as { error?: string; run_id?: string };
@@ -156,11 +159,15 @@ export default function FounderDetailPage() {
       setRunId(body.run_id ?? null);
       setTheaterDone(true);
       await load();
+      const refreshed = await fetch(`/api/founders/${encodeURIComponent(id)}`);
+      const { data: fresh } = await readJsonSafe<{ memo?: { id: string } }>(refreshed);
+      memoReady = Boolean(fresh?.memo?.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Screen failed");
     } finally {
       setScreenBusy(false);
     }
+    return memoReady;
   }, [id, load]);
 
   const runDeepDiligence = useCallback(async () => {
@@ -273,9 +280,15 @@ export default function FounderDetailPage() {
     if (typeof window === "undefined" || autoScreened.current) return;
     if (new URLSearchParams(window.location.search).get("screen") === "1") {
       autoScreened.current = true;
-      void runScreen();
+      void (async () => {
+        const memoReady = await runScreen();
+        const openMemo = new URLSearchParams(window.location.search).get("open_memo") === "1";
+        if (memoReady && openMemo) {
+          router.replace(`/app/founders/${encodeURIComponent(id)}/memo`);
+        }
+      })();
     }
-  }, [runScreen]);
+  }, [runScreen, router, id]);
 
   // Inbound / thin profiles: open the profile editor so judges add socials first.
   useEffect(() => {
@@ -380,10 +393,29 @@ export default function FounderDetailPage() {
   if (error && !data) {
     return (
       <div>
-        <p className="text-danger">{error}</p>
-        <Link href="/app/radar" className="mt-4 inline-block text-sm text-accent">
-          ← Back to radar
-        </Link>
+        <p className="text-danger" role="alert">
+          {error}
+        </p>
+        <p className="mt-2 max-w-md text-sm text-muted">
+          Profile id{" "}
+          <span className="font-mono text-xs text-ink">{id}</span>. If you just
+          saved, try reload — serverless instances read from Postgres.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+            onClick={() => void load()}
+          >
+            Retry load
+          </button>
+          <Link
+            href="/app/radar"
+            className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
+          >
+            ← Back to radar
+          </Link>
+        </div>
       </div>
     );
   }
@@ -518,7 +550,7 @@ export default function FounderDetailPage() {
             Diligence probe claim
           </button>
           <Link
-            href={`/app/founders/${id}/memo`}
+            href={`/app/founders/${encodeURIComponent(id)}/memo`}
             prefetch
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
           >
@@ -651,7 +683,7 @@ export default function FounderDetailPage() {
             </p>
           </div>
           <Link
-            href={`/app/founders/${id}/memo`}
+            href={`/app/founders/${encodeURIComponent(id)}/memo`}
             className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
           >
             {data.memo?.decision

@@ -34,13 +34,25 @@ export async function GET() {
 
     const loopsWeek = loops.filter((l) => inWeek(l.started_at));
     const pubsWeek = publishLog.filter((l) => inWeek(l.at));
+    const providerConfirmedWeek = posts.filter(
+      (p) =>
+        p.status === "published" &&
+        Boolean(p.published_at) &&
+        inWeek(p.published_at!),
+    );
+    const approvedOrQueuedWeek = postsWeek.filter(
+      (p) =>
+        p.status === "approved" ||
+        p.status === "queued" ||
+        p.status === "published",
+    );
 
     const tip =
       byStatus.pending > byStatus.published
         ? "HITL queue is backing up — clear pending or raise autonomy for low-risk channels."
         : pubsWeek.length === 0
-          ? "No queued publishes this week — run a Studio loop, then approve or set L2/L3."
-          : "Fleet is shipping drafts. Review publish_log — live social needs a connected account.";
+          ? "No queue activity this week — run Studio drafts, then approve. L2 auto-queues X/LinkedIn only (still not published without a provider id)."
+          : "Fleet is shipping drafts. Review publish_log — live social needs a connected account + real provider post id.";
 
     return NextResponse.json({
       ok: true,
@@ -59,17 +71,27 @@ export async function GET() {
         failed: loopsWeek.filter((l) => l.status === "failed").length,
       },
       publish: {
-        stub_acts_7d: pubsWeek.length,
+        /** Queue/intent log entries — not a claim of live social posts. */
+        queue_events_7d: pubsWeek.length,
         via: {
           hitl: pubsWeek.filter((l) => l.via === "hitl_approve").length,
           l2: pubsWeek.filter((l) => l.via === "l2_auto").length,
           l3: pubsWeek.filter((l) => l.via === "l3_auto").length,
         },
-        recent: pubsWeek.slice(0, 10),
+        published_posts_7d: providerConfirmedWeek.length,
+        funnel: {
+          drafted: postsWeek.length,
+          approved_or_queued: approvedOrQueuedWeek.length,
+          provider_confirmed: providerConfirmedWeek.length,
+        },
+        recent: pubsWeek.slice(0, 10).map((event) => ({
+          ...event,
+          actor: event.actor,
+        })),
       },
       tip,
       honest:
-        "No third-party analytics — counts from durable marketing_state (Supabase) when dual-write keys are set.",
+        "Workspace activity only. Queued means approved for delivery; provider-confirmed means a connected provider returned a post ID/URL. Third-party reach, clicks, and conversions are unavailable until analytics is connected.",
     });
   });
 }

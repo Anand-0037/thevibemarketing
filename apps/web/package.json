@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:content": "tsx src/content/posts.test.ts && tsx src/content/plans.test.ts && tsx src/lib/seo-assets.test.ts && tsx src/lib/marketing-store-lifecycle.test.ts && tsx src/lib/publishing/publish-attempt-service.test.ts",
+    "test:publishing:db": "tsx src/lib/publishing/publish-attempt-db.test.ts",
+    "test": "pnpm test:content"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

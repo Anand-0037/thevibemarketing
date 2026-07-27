@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/publishing/drain?secret=%INTERNAL_WORKER_SECRET%&batchSize=5&leaseOwner=vercel-cron",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

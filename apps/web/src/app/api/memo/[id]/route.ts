@@ -32,14 +32,17 @@ async function maybePolishSections(
   }
 
   try {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const polished = await Promise.race([
       polishMemoSections(sections, {
         apiKey: process.env.OPENAI_API_KEY,
       }),
       new Promise<MemoSection[]>((resolve) => {
-        setTimeout(() => resolve(sections), 2500);
+        timer = setTimeout(() => resolve(sections), 2500);
       }),
-    ]);
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
     const changed = polished.some(
       (s, i) => s.body !== sections[i]?.body,
     );

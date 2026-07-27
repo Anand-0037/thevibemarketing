@@ -13,7 +13,7 @@ export const SITE_CANONICAL_URL = `https://${SITE_CANONICAL_HOST}`;
 export const SITE_TAGLINE =
   "Paste your product URL. Get a brand brief, campaign plan, and drafts you approve.";
 export const SITE_DESCRIPTION =
-  "Cursor for marketing — brand brief, seven-day campaigns, and approval-gated drafts for SaaS founders. Same engine powers VC Brain founder sourcing.";
+  "vibemarketer helps technical SaaS founders turn a product URL into on-brand launch drafts, then approve what goes live — brand memory, multi-channel drafts, and HITL before anything publishes.";
 
 function normalizeBase(raw: string): string {
   let base = raw.trim().replace(/\/$/, "");
@@ -66,35 +66,36 @@ export const PUBLIC_ROUTES = [
   { path: "/product", priority: 0.9, changeFrequency: "monthly" as const },
   { path: "/connectors", priority: 0.8, changeFrequency: "monthly" as const },
   { path: "/pricing", priority: 0.85, changeFrequency: "monthly" as const },
-  { path: "/vc-brain", priority: 0.9, changeFrequency: "weekly" as const },
+  { path: "/vc-brain", priority: 0.3, changeFrequency: "monthly" as const },
   {
     path: "/tools/gravity-audit",
-    priority: 0.85,
-    changeFrequency: "weekly" as const,
+    priority: 0.5,
+    changeFrequency: "monthly" as const,
   },
   { path: "/blog", priority: 0.75, changeFrequency: "weekly" as const },
   { path: "/newsletter", priority: 0.8, changeFrequency: "weekly" as const },
   { path: "/guides", priority: 0.75, changeFrequency: "weekly" as const },
   { path: "/get-started", priority: 0.85, changeFrequency: "monthly" as const },
   { path: "/demo", priority: 0.7, changeFrequency: "monthly" as const },
-  { path: "/checkout/success", priority: 0.2, changeFrequency: "yearly" as const },
-  { path: "/login", priority: 0.4, changeFrequency: "monthly" as const },
-  { path: "/signup", priority: 0.4, changeFrequency: "monthly" as const },
 ] as const;
 
 export const KEYWORDS = [
-  "AI marketing agents",
-  "AI marketing fleet",
   "Cursor for marketing",
+  "vibemarketer",
+  "AI marketing operating system",
+  "AI CMO for SaaS founders",
+  "SaaS marketing drafts",
+  "AI marketing for founders",
+  "HITL marketing",
+  "brand memory",
   "SaaS distribution",
   "agentic marketing",
-  "HITL marketing",
   "SEO AEO",
-  "VC Brain",
-  "distribution gravity",
-  "founder sourcing",
+  "GEO marketing",
+  "generative engine optimization",
+  "answer engine optimization",
   "Reddit marketing for SaaS",
-  "Product Hunt launch agents",
+  "launch drafts for startups",
 ] as const;
 
 /** Google OAuth button — only when Supabase Google provider is enabled. */

@@ -258,6 +258,40 @@ export async function dualWriteProduct(product: Product): Promise<void> {
   const ws = await ensureWorkspace(sb);
   if (!ws) return;
 
+  // FK: products (workspace_id, founder_id) → founders (workspace_id, id).
+  // Guard against races / id-merge mismatches so product never lands orphaned.
+  const { data: parent } = await sb
+    .from("founders")
+    .select("id")
+    .eq("workspace_id", ws)
+    .eq("id", product.founder_id)
+    .maybeSingle();
+
+  if (!parent) {
+    const now = new Date().toISOString();
+    const { error: stubErr } = await sb.from("founders").upsert(
+      {
+        id: product.founder_id,
+        workspace_id: ws,
+        name: product.name || "Founder",
+        handles: {},
+        links: [],
+        claims: [],
+        founder_score: 0,
+        score_confidence: 0,
+        gravity: {},
+        created_at: now,
+        updated_at: now,
+      },
+      { onConflict: "workspace_id,id" },
+    );
+    if (stubErr) {
+      throw new Error(
+        `[postgres-dual] product parent founder: ${stubErr.message}`,
+      );
+    }
+  }
+
   const { error } = await sb.from("products").upsert(
     {
       id: product.id,
@@ -614,5 +648,65 @@ export async function fetchStoreBundleFromPostgres(): Promise<StoreData | null> 
     screenings: mappedScreenings,
     memos: mappedMemos,
     traces: mappedTraces,
+  };
+}
+
+/**
+ * Point lookup for a single founder in the caller's workspace.
+ * Used when serverless /tmp is cold and full hydrate missed a row (or id alias).
+ */
+export async function fetchFounderFromPostgres(
+  founderId: string,
+): Promise<Founder | null> {
+  const id = founderId?.trim();
+  if (!id) return null;
+  const sb = getAdmin();
+  if (!sb) return null;
+  const ws = await ensureWorkspace(sb);
+  if (!ws) return null;
+
+  const { data: row, error } = await sb
+    .from("founders")
+    .select("*")
+    .eq("workspace_id", ws)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[postgres-dual] founder lookup:", error.message);
+    return null;
+  }
+  if (!row) return null;
+
+  const { data: events } = await sb
+    .from("founder_score_events")
+    .select("score, confidence, at")
+    .eq("workspace_id", ws)
+    .eq("founder_id", id)
+    .order("at", { ascending: true })
+    .limit(40);
+
+  const g = (row.gravity ?? {}) as Founder["gravity"];
+  const history =
+    events?.map((ev) => ({
+      score: Number(ev.score ?? 0),
+      confidence: Number((ev as { confidence?: number }).confidence ?? 0),
+      at: (ev.at as string) ?? new Date().toISOString(),
+    })) ?? [];
+
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    handles: (row.handles ?? {}) as Founder["handles"],
+    links: (row.links ?? []) as string[],
+    bio: (row.bio as string | null) ?? undefined,
+    claims: Array.isArray(row.claims) ? (row.claims as Founder["claims"]) : [],
+    founder_score: Number(row.founder_score ?? 0),
+    score_confidence: Number(row.score_confidence ?? 0),
+    gravity: g && typeof g.gravity_score === "number" ? g : emptyGravity(),
+    activation: (row.activation as Founder["activation"]) ?? undefined,
+    score_history: history.length ? history : undefined,
+    created_at: (row.created_at as string) ?? new Date().toISOString(),
+    updated_at: (row.updated_at as string) ?? new Date().toISOString(),
   };
 }

@@ -203,7 +203,7 @@ function Side({
       </dl>
       <p className="mt-4 text-sm leading-relaxed text-muted">{side.note}</p>
       <Link
-        href={`/app/founders/${side.id}`}
+        href={`/app/founders/${encodeURIComponent(side.id)}`}
         className="focus-ring mt-6 inline-block text-sm text-accent hover:underline"
       >
         Open profile →

@@ -36,6 +36,15 @@ export function CommandPalette() {
   const commands: Cmd[] = useMemo(
     () => [
       {
+        id: "cmo",
+        label: "CMO desk",
+        hint: "Agents · GEO · chat",
+        run: () => {
+          router.push("/app/cmo");
+          close();
+        },
+      },
+      {
         id: "onboarding",
         label: "Brand onboarding",
         hint: "URL → memory",

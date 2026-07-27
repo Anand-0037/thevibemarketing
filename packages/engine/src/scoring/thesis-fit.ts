@@ -1,4 +1,5 @@
 import type { Founder, Product, Thesis } from "../types";
+import { sectorMatchesThesis } from "./sector-match";
 
 export type ThesisFit = "match" | "partial" | "miss";
 
@@ -19,10 +20,7 @@ export function thesisFit(
       sectorOk = false;
       notes.push("sector undisclosed");
     } else {
-      const ps = product.sector.toLowerCase();
-      sectorOk = thesis.sectors.some(
-        (t) => ps.includes(t.toLowerCase()) || t.toLowerCase().includes(ps),
-      );
+      sectorOk = sectorMatchesThesis(product.sector, thesis.sectors);
       notes.push(sectorOk ? `sector ok (${product.sector})` : `sector miss (${product.sector})`);
     }
   }

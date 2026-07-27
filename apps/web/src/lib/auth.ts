@@ -8,6 +8,29 @@ export type AuthUser = {
   email?: string;
 };
 
+export async function getAuthUser(): Promise<AuthUser | null> {
+  if (isAuthBypassed()) {
+    return {
+      id: "local-bypass",
+      email: "local@bypass.dev",
+    };
+  }
+
+  if (!isAuthConfigured()) return null;
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user?.id) return null;
+    return {
+      id: data.user.id,
+      email: data.user.email ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Require an authenticated Supabase user for private API routes.
  * Returns 401 JSON when unauthenticated (unless AUTH_BYPASS for local only).
@@ -33,25 +56,14 @@ export async function requireUser(): Promise<
     };
   }
 
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user?.id) {
-      return {
-        error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-      };
-    }
-    return {
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-      },
-    };
-  } catch {
+  const user = await getAuthUser();
+  if (!user) {
     return {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
   }
+
+  return { user };
 }
 
 /** Auth + per-owner workspace context for Memory / dual-write. */

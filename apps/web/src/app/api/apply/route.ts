@@ -277,7 +277,11 @@ export async function POST(req: Request) {
         },
       ];
 
-      await store.upsertFounder({
+      // MemoryStore may merge on name/github/link identity — always use the
+      // canonical id returned by upsert, not the provisional inbound_* id.
+      // Product FK (workspace_id, founder_id) fails if we dual-write product
+      // against a provisional id that never landed in Postgres.
+      const savedFounder = await store.upsertFounder({
         id,
         name,
         handles: {
@@ -291,12 +295,23 @@ export async function POST(req: Request) {
         founder_score: 0,
         score_confidence: 0.3,
       });
+      const founderId = savedFounder.id;
+      const mergedExisting = founderId !== id;
+
+      let domain: string | undefined;
+      if (deckUrl) {
+        try {
+          domain = new URL(deckUrl).hostname.replace(/^www\./, "");
+        } catch {
+          /* ignore */
+        }
+      }
 
       await store.upsertProduct({
-        id: `p_${id}`,
-        founder_id: id,
+        id: `p_${founderId}`,
+        founder_id: founderId,
         name: companyName,
-        domain: undefined,
+        domain,
         oneliner: body.oneliner || undefined,
         sector: body.sector || "developer tools",
         stage: "pre-seed",
@@ -305,7 +320,7 @@ export async function POST(req: Request) {
 
       await store.addSignal({
         entity_type: "founder",
-        entity_id: id,
+        entity_id: founderId,
         source: "inbound",
         url: deckUrl || deckRef,
         payload: {
@@ -317,6 +332,9 @@ export async function POST(req: Request) {
           deck_sha256: body.deck_sha256,
           deck_storage_path,
           github: github ?? null,
+          company: companyName,
+          provisional_id: id,
+          merged_existing: mergedExisting,
         },
         observed_at: now,
       });
@@ -324,7 +342,7 @@ export async function POST(req: Request) {
       const sb = getSupabaseAdmin();
       if (sb) {
         const { error } = await sb.from("inbound_applications").upsert({
-          id,
+          id: founderId,
           owner_id: ownerId === "inbound" ? null : ownerId,
           company_name: companyName,
           founder_name: name,
@@ -339,18 +357,18 @@ export async function POST(req: Request) {
         if (error) console.error("[apply] inbound_applications", error.message);
       }
 
-      let product = await store.getProductForFounder(id);
+      let product = await store.getProductForFounder(founderId);
       let enrichNote: string | undefined;
       // Cold-start path (brief AoR #3): public footprint → gravity before screen.
       if (github || xHandle || linkedin || deckUrl) {
-        const base = await store.getFounder(id);
+        const base = await store.getFounder(founderId);
         if (base) {
           try {
             const profile = await enrichFromProfile(base, product);
             for (const sp of profile.signals) {
               await store.addSignal({
                 entity_type: "founder",
-                entity_id: id,
+                entity_id: founderId,
                 source: sp.source,
                 url: sp.url,
                 payload: sp.payload,
@@ -374,9 +392,9 @@ export async function POST(req: Request) {
         }
       }
 
-      const signals = await store.getSignalsFor(id);
+      const signals = await store.getSignalsFor(founderId);
       const gravity = scoreGravityFromSignals(signals);
-      const founderNow = (await store.getFounder(id))!;
+      const founderNow = (await store.getFounder(founderId))!;
       const score = composeFounderScoreFromGravity(gravity, {
         coherence: coherenceFromSignals(
           new Set(signals.map((s) => s.source)).size,
@@ -384,7 +402,7 @@ export async function POST(req: Request) {
         track_record: inferTrackRecord(founderNow),
       });
       const founder = await store.upsertFounder({
-        id,
+        id: founderId,
         name,
         founder_score: score.founder_score,
         score_confidence: score.score_confidence,
@@ -393,7 +411,7 @@ export async function POST(req: Request) {
         links: founderNow.links,
       });
 
-      product = await store.getProductForFounder(id);
+      product = await store.getProductForFounder(founderId);
       const thesis = await store.getThesis();
       const first_pass = firstPassScreen({
         founder: {
@@ -411,7 +429,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         ok: first_pass.pass,
-        founder_id: id,
+        founder_id: founderId,
         first_pass,
         gravity: gravity.gravity_score,
         founder_score: score.founder_score,
@@ -421,10 +439,14 @@ export async function POST(req: Request) {
         materials_kind: materialsKind ?? null,
         deck_storage_path: deck_storage_path ?? null,
         identity: "applicant",
+        merged_existing: mergedExisting,
         note: [
           first_pass.pass
             ? "First-pass cleared — open founder → run 3-axis screen next."
             : "Application stored — first-pass flagged issues (see checks).",
+          mergedExisting
+            ? "Matched an existing founder (same name/GitHub/link) — updated that profile."
+            : null,
           enrichNote,
           `Gravity ${gravity.gravity_score.toFixed(0)}/100 · Founder Score ${score.founder_score.toFixed(0)}.`,
           deckUrlNote,

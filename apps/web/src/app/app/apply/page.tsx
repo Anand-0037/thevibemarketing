@@ -259,16 +259,16 @@ export default function ApplyPage() {
       {founderId ? (
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
-            href={`/app/founders/${founderId}`}
+            href={`/app/founders/${encodeURIComponent(founderId)}`}
             className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
           >
             Open profile
           </Link>
           <Link
-            href={`/app/founders/${founderId}?screen=1`}
+            href={`/app/founders/${encodeURIComponent(founderId)}?screen=1&open_memo=1`}
             className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
           >
-            Run 3-axis screen
+            Run 3-axis screen (open memo)
           </Link>
           <Link
             href="/app/radar"

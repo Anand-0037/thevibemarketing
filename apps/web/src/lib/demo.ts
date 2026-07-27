@@ -1,11 +1,8 @@
 /**
  * Demo / dogfood prefills (Anand operator data).
- * Off in production unless NEXT_PUBLIC_DEMO_DEFAULTS=1.
- * On in local/dev unless NEXT_PUBLIC_DEMO_DEFAULTS=0.
+ * Disabled by default everywhere. Explicitly opt in only for isolated local work.
  */
 export function demoDefaultsEnabled(): boolean {
   const v = process.env.NEXT_PUBLIC_DEMO_DEFAULTS?.trim();
-  if (v === "1") return true;
-  if (v === "0") return false;
-  return process.env.NODE_ENV !== "production";
+  return v === "1" && process.env.NODE_ENV !== "production";
 }

@@ -30,7 +30,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const aeoEntries: MetadataRoute.Sitemap = [
     "/llms.txt",
     "/llms-full.txt",
+    "/site-index.txt",
     "/feed.jsonl",
+    "/answers.json",
     "/rss.xml",
     "/humans.txt",
   ].map((path) => ({

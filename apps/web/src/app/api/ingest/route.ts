@@ -28,7 +28,9 @@ export async function POST(req: Request) {
   return withOwnedStore(async () => {
     const url = new URL(req.url);
     const dry = url.searchParams.get("dry") === "1";
-    const autoScreen = url.searchParams.get("auto_screen") !== "0";
+    // Opt-in only: auto-screen runs full diligence (LLM + scrapers) and can take minutes.
+    // Identify should return candidates fast; use Screen all / founder page for scoring.
+    const autoScreen = url.searchParams.get("auto_screen") === "1";
     const limit = Math.min(
       40,
       Math.max(1, Number(url.searchParams.get("limit") || 20) || 20),
@@ -196,7 +198,7 @@ export async function POST(req: Request) {
         note:
           autoScreened.length > 0
             ? `Identify + conviction auto-screened ${autoScreened.length} founder(s) (cap ${AUTO_SCREEN_CAP}).`
-            : "Identify upserts discovered candidates from live sources only.",
+            : "Identify upserted live candidates only. Run Screen all (or open a founder) to score — not auto-run on Identify.",
         upserted,
       });
     } catch (e) {
@@ -210,6 +212,6 @@ export async function POST(req: Request) {
 
 export async function GET() {
   return NextResponse.json({
-    tip: "POST /api/ingest — live GitHub+HN+arXiv. ?auto_screen=0 to disable conviction auto-screen.",
+    tip: "POST /api/ingest — live GitHub+HN+arXiv. Optional ?auto_screen=1 runs conviction diligence (slow).",
   });
 }

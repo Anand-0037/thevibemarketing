@@ -1,4 +1,5 @@
 import type { Founder, Product, Thesis } from "../types";
+import { sectorMatchesThesis } from "./sector-match";
 
 export type FirstPassResult = {
   pass: boolean;
@@ -8,7 +9,9 @@ export type FirstPassResult = {
 
 /**
  * Cheap gate before full 3-axis + memo analysis.
- * Removes clearly non-viable inbound/outbound apps early (brief §4).
+ * Hard-fails only when analysis cannot run (no company, no materials on inbound,
+ * no wedge, thin signal). Sector / thesis mismatch is a soft signal — the memo
+ * encodes it as NO/WATCH + gaps, never blocks Generate memo.
  */
 export function firstPassScreen(input: {
   founder: Founder;
@@ -60,22 +63,15 @@ export function firstPassScreen(input: {
   if (!hasWedge) reasons.push("Need a one-liner or bio for screening");
 
   if (thesis?.sectors?.length && product?.sector) {
-    const ps = product.sector.toLowerCase();
-    const hit = thesis.sectors.some(
-      (t) => ps.includes(t.toLowerCase()) || t.toLowerCase().includes(ps),
-    );
+    const hit = sectorMatchesThesis(product.sector, thesis.sectors);
     checks.push({
       name: "thesis_sector",
       ok: hit,
       detail: hit
         ? `Sector "${product.sector}" fits thesis`
-        : `Sector "${product.sector}" outside thesis [${thesis.sectors.join(", ")}]`,
+        : `Sector "${product.sector}" outside thesis [${thesis.sectors.join(", ")}] — soft flag; full analysis still runs`,
     });
-    // Hard-fail sector only on inbound applications (brief §4 fast filter).
-    // Outbound stays visible so investors can still inspect / activate.
-    if (!hit && requireDeck) {
-      reasons.push("Sector outside fund thesis — first-pass fail");
-    }
+    // Soft only: mismatch must not block memo / 3-axis. Decision layer owns NO/WATCH.
   } else {
     checks.push({
       name: "thesis_sector",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BlogBlocks } from "@/components/BlogBlocks";
+import { AuthAwareActions } from "@/components/AuthAwareCta";
 import { JsonLd } from "@/components/JsonLd";
 import {
   MarketingPageHero,
@@ -16,7 +17,13 @@ import {
   postHasDiagram,
   postsSorted,
 } from "@/content/posts";
-import { articleJsonLd, pageMetadata } from "@/lib/seo";
+import {
+  articleJsonLd,
+  breadcrumbJsonLd,
+  itemListJsonLd,
+  pageMetadata,
+  webPageJsonLd,
+} from "@/lib/seo";
 
 export function generateStaticParams() {
   return getAllSlugs().map((slug) => ({ slug }));
@@ -52,56 +59,99 @@ export default async function BlogPostPage({
     .filter((p) => p.slug !== post.slug)
     .slice(0, 2);
   const hasDiagram = postHasDiagram(post);
+  const isArchive = post.listed === false || post.tag === "archive";
 
   return (
     <article>
       <JsonLd
-        data={articleJsonLd({
-          title: post.title,
-          description: post.excerpt,
-          path: `/blog/${post.slug}`,
-          date: post.date,
-        })}
+        data={[
+          articleJsonLd({
+            title: post.title,
+            description: post.excerpt,
+            path: `/blog/${post.slug}`,
+            date: post.date,
+          }),
+          webPageJsonLd({
+            name: post.title,
+            description: post.excerpt,
+            path: `/blog/${post.slug}`,
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Blog", path: "/blog" },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
+          itemListJsonLd({
+            name: "Related vibemarketer posts",
+            path: `/blog/${post.slug}`,
+            items: others.map((p) => ({
+              name: p.title,
+              path: `/blog/${p.slug}`,
+              description: p.excerpt,
+            })),
+          }),
+        ]}
       />
       <MarketingPageHero
         narrow={!hasDiagram}
-        label="Writing"
+        label={isArchive ? "Archive" : "Writing"}
         title={post.title}
         lead={post.excerpt}
       >
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/blog" className="text-accent hover:underline focus-ring">
-            ← Blog
-          </Link>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
-            {post.date}
-            {post.tag ? ` · ${post.tag}` : ""}
-          </span>
-          {hasDiagram ? (
-            <span className="border border-accent/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent">
-              diagrams
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-4 text-sm text-muted">
-          {post.author ?? DOGFOOD_OPERATOR.name}
-          {" · "}
-          <a
-            href={DOGFOOD_OPERATOR.x_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-accent hover:underline"
+        {/* Meta row: large hit targets — chips are labels, not tiny links */}
+        <div className="mt-2 flex flex-col gap-4">
+          <Link
+            href="/blog"
+            className="btn-ghost focus-ring inline-flex min-h-11 w-fit items-center gap-2 !px-4 !py-2.5 text-sm"
           >
-            @{DOGFOOD_OPERATOR.x_handle}
-          </a>
-        </p>
+            <span aria-hidden>←</span> All posts
+          </Link>
+
+          <div className="flex flex-wrap gap-2">
+            <time
+              dateTime={post.date}
+              className="inline-flex min-h-10 items-center rounded-md border border-line bg-bg-elevated px-3 py-2 font-mono text-xs text-muted"
+            >
+              {post.date}
+            </time>
+            {post.tag ? (
+              <span className="inline-flex min-h-10 items-center rounded-md border border-line bg-bg-elevated px-3 py-2 font-mono text-xs uppercase tracking-wider text-muted">
+                {post.tag}
+              </span>
+            ) : null}
+            {hasDiagram ? (
+              <span className="inline-flex min-h-10 items-center rounded-md border border-accent/40 bg-accent/10 px-3 py-2 font-mono text-xs uppercase tracking-wider text-accent">
+                diagrams
+              </span>
+            ) : null}
+            {isArchive ? (
+              <span className="inline-flex min-h-10 items-center rounded-md border border-warn/40 bg-warn/10 px-3 py-2 font-mono text-xs uppercase tracking-wider text-warn">
+                historical
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+            <span>By {post.author ?? DOGFOOD_OPERATOR.name}</span>
+            <a
+              href={DOGFOOD_OPERATOR.x_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost focus-ring inline-flex min-h-11 items-center !px-3 !py-2 text-sm text-accent"
+            >
+              @{DOGFOOD_OPERATOR.x_handle}
+              <span className="sr-only"> on X (opens in new tab)</span>
+            </a>
+          </div>
+        </div>
       </MarketingPageHero>
 
       <MarketingSection>
         <div className={hasDiagram ? "max-w-4xl" : "max-w-3xl"}>
           <BlogBlocks
             blocks={
-              post.blocks ?? post.body.map((text) => ({ type: "p" as const, text }))
+              post.blocks ??
+              post.body.map((text) => ({ type: "p" as const, text }))
             }
           />
         </div>
@@ -114,28 +164,39 @@ export default async function BlogPostPage({
             More like this, less feed noise
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Newsletter for builders — or open Gravity Audit / the app.
+            Newsletter for builders — or start free in the app.
           </p>
           <WaitlistForm source="blog" compact cta="Subscribe" />
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href="/app"
-              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-            >
-              Open app
-            </Link>
-            <Link
-              href="/vc-brain"
-              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-            >
-              VC Brain
-            </Link>
-            <Link
-              href="/tools/gravity-audit"
-              className="btn-ghost focus-ring !px-3 !py-1.5 text-sm"
-            >
-              Gravity Audit
-            </Link>
+          <div className="cta-box mt-4">
+            <p className="cta-box__hint">Continue</p>
+            <div className="cta-box__actions">
+              <AuthAwareActions
+                guest={{
+                  href: "/get-started",
+                  label: "Get started",
+                  className: "btn-primary focus-ring !px-4 !py-2.5 text-sm",
+                }}
+                authed={{
+                  href: "/app/cmo",
+                  label: "CMO desk",
+                  className: "btn-primary focus-ring !px-4 !py-2.5 text-sm",
+                }}
+                guestSecondary={[
+                  {
+                    href: "/app/cmo",
+                    label: "CMO desk",
+                    className: "btn-ghost focus-ring !px-4 !py-2.5 text-sm",
+                  },
+                ]}
+                authedSecondary={[
+                  {
+                    href: "/app/onboarding",
+                    label: "Brand onboarding",
+                    className: "btn-ghost focus-ring !px-4 !py-2.5 text-sm",
+                  },
+                ]}
+              />
+            </div>
           </div>
         </div>
       </MarketingSection>
@@ -145,19 +206,21 @@ export default async function BlogPostPage({
           <MarketingSectionHeading label="Keep reading" title="More notes" />
           <ul className="stagger space-y-0">
             {others.map((p) => (
-              <li key={p.slug} className="border-t border-line py-5">
+              <li key={p.slug} className="border-t border-line">
                 <Link
                   href={`/blog/${p.slug}`}
-                  className="font-display text-lg font-semibold text-ink hover:text-accent"
+                  className="group focus-ring block py-5"
                 >
-                  {p.title}
+                  <h3 className="font-display text-lg font-semibold text-ink group-hover:text-accent">
+                    {p.title}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted">{p.excerpt}</p>
                   {postHasDiagram(p) ? (
-                    <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-accent">
+                    <span className="mt-2 inline-flex min-h-9 items-center rounded-md border border-accent/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-accent">
                       diagrams
                     </span>
                   ) : null}
                 </Link>
-                <p className="mt-1 text-sm text-muted">{p.excerpt}</p>
               </li>
             ))}
           </ul>

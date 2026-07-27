@@ -22,8 +22,7 @@ export type AuthActionState = {
 
 function notConfigured(): AuthActionState {
   return {
-    error:
-      "Auth is not configured yet. Add Supabase URL + publishable key to .env (see AUTH.md).",
+    error: "Sign-in is temporarily unavailable. Please try again later.",
   };
 }
 
@@ -63,6 +62,17 @@ export async function signInWithPassword(
   });
 
   if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    const msg = (error.message || "").toLowerCase();
+    if (
+      code === "email_not_confirmed" ||
+      msg.includes("email not confirmed")
+    ) {
+      return {
+        error:
+          "Please confirm your email first. Check your inbox for a confirmation link, then try signing in again.",
+      };
+    }
     return { error: "Invalid email or password." };
   }
 
@@ -126,8 +136,7 @@ export async function signInWithGoogle(
   if (!isAuthConfigured()) return notConfigured();
   if (process.env.NEXT_PUBLIC_GOOGLE_OAUTH !== "1") {
     return {
-      error:
-        "Google sign-in is not enabled yet. Use email + password, or enable the Google provider in Supabase and set NEXT_PUBLIC_GOOGLE_OAUTH=1.",
+      error: "Google sign-in isn’t available right now. Use email and password instead.",
     };
   }
   const limited = await rateLimited("oauth-google");
@@ -152,8 +161,7 @@ export async function signInWithGoogle(
 
   if (error || !data.url) {
     return {
-      error:
-        "Google sign-in unavailable. Enable the Google provider in Supabase Auth (Authentication → Providers → Google).",
+      error: "Google sign-in isn’t available right now. Use email and password instead.",
     };
   }
 

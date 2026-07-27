@@ -85,6 +85,7 @@ export function StackPartners() {
                       alt={`${p.name} logo`}
                       width={p.wide ? 96 : 28}
                       height={28}
+                      style={{ width: "auto", height: "auto" }}
                       className={
                         p.invertOnDark
                           ? "h-7 w-auto max-w-[7rem] object-contain opacity-90 [html[data-theme=dark]_&]:[filter:brightness(0)_invert(1)] group-hover:opacity-100"

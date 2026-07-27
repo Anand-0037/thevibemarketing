@@ -5,9 +5,11 @@ import {
   MarketingSection,
   MarketingSectionHeading,
 } from "@/components/MarketingPage";
+import { JsonLd } from "@/components/JsonLd";
+import { AuthAwareActions } from "@/components/AuthAwareCta";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { postsSorted } from "@/content/posts";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, itemListJsonLd, pageMetadata, webPageJsonLd } from "@/lib/seo";
 import { NewsletterOk } from "./NewsletterOk";
 
 export const metadata: Metadata = pageMetadata({
@@ -22,6 +24,29 @@ export default function NewsletterPage() {
 
   return (
     <>
+      <JsonLd
+        data={[
+          webPageJsonLd({
+            name: "vibemarketer newsletter",
+            path: "/newsletter",
+            description:
+              "Distribution notes on agentic marketing, cold-start gravity, SEO/AEO, launch loops, and founder-led SaaS marketing.",
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Newsletter", path: "/newsletter" },
+          ]),
+          itemListJsonLd({
+            name: "latest vibemarketer writing",
+            path: "/newsletter",
+            items: latest.map((post) => ({
+              name: post.title,
+              path: `/blog/${post.slug}`,
+              description: post.excerpt,
+            })),
+          }),
+        ]}
+      />
       <MarketingPageHero
         narrow
         label="Owned audience"
@@ -70,9 +95,18 @@ export default function NewsletterPage() {
           <Link href="/blog" className="text-accent hover:underline">
             All writing →
           </Link>
-          <Link href="/#waitlist" className="text-accent hover:underline">
-            Product waitlist
-          </Link>
+          <AuthAwareActions
+            guest={{
+              href: "/signup",
+              label: "Start free",
+              className: "text-accent hover:underline",
+            }}
+            authed={{
+              href: "/app/cmo",
+              label: "Open app",
+              className: "text-accent hover:underline",
+            }}
+          />
           <Link
             href="/tools/gravity-audit"
             className="text-accent hover:underline"

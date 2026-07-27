@@ -23,8 +23,10 @@ export function AuthBypassBanner() {
         Auth disabled — /app is open without login ({reason})
       </p>
       <p className="mt-0.5 text-[11px] text-danger/90 sm:text-xs">
-        Do not ship this to real users. Set Supabase URL + publishable key and{" "}
-        <span className="font-mono">AUTH_BYPASS=0</span>. See AUTH.md.
+        Do not ship this to real users. Set{" "}
+        <span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span> and{" "}
+        <span className="font-mono">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</span>, then{" "}
+        <span className="font-mono">AUTH_BYPASS=0</span>.
       </p>
     </div>
   );

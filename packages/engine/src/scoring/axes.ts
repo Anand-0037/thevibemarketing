@@ -6,6 +6,7 @@ import type {
   Thesis,
   Trend,
 } from '../types';
+import { sectorMatchesThesis } from './sector-match';
 
 const clamp = (n: number, lo = 0, hi = 100): number => Math.min(hi, Math.max(lo, n));
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
@@ -58,10 +59,7 @@ function sectorMatch(product: Product | undefined, thesis: Thesis | null | undef
   if (!product?.sector) {
     return { match: false, note: 'Product sector not disclosed — thesis filter cannot confirm fit' };
   }
-  const ps = normalize(product.sector);
-  const hit = thesis.sectors.some(
-    (t) => ps.includes(normalize(t)) || normalize(t).includes(ps),
-  );
+  const hit = sectorMatchesThesis(product.sector, thesis.sectors);
   return {
     match: hit,
     note: hit

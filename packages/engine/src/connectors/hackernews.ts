@@ -33,6 +33,7 @@ export async function fetchShowHnDetailed(limit = 20): Promise<SourceFetchResult
     const url = `https://hn.algolia.com/api/v1/search_by_date?tags=show_hn&hitsPerPage=${limit}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "thevibemarketing-vcbrain" },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
       return {
@@ -75,6 +76,7 @@ export async function searchHnStories(
     const url = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&hitsPerPage=${limit}&tags=story`;
     const res = await fetch(url, {
       headers: { "User-Agent": "thevibemarketing-vcbrain" },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
       return {

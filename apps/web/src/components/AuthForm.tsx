@@ -55,11 +55,11 @@ export function AuthForm({
           <p className="rise-delay-2 mt-4 text-base text-muted">
             {mode === "login"
               ? googleOAuthEnabled
-                ? "Google or email + password. Sessions stay in HttpOnly cookies."
-                : "Sign in with email + password. Sessions stay in HttpOnly cookies."
+                ? "Sign in with Google or your email and password."
+                : "Sign in with your email and password."
               : googleOAuthEnabled
-                ? "Sign up with Google or email + password (8+ chars, letter + number)."
-                : "Sign up with email + password (8+ chars, letter + number)."}
+                ? "Create an account with Google or email and password (8+ characters, include a letter and a number)."
+                : "Create an account with email and password (8+ characters, include a letter and a number)."}
           </p>
 
           {!authReady ? (

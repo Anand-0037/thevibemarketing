@@ -14,8 +14,10 @@
     "smoke:memory": "pnpm exec tsx scripts/supermemory-smoke.ts",
     "probe:keys": "pnpm exec tsx scripts/probe-api-keys.ts",
     "smoke:e2b": "pnpm exec tsx scripts/e2b-forensics-smoke.ts",
-    "test": "pnpm --filter @vibe/engine test && pnpm smoke:web",
-    "test:engine": "pnpm --filter @vibe/engine test"
+    "test": "pnpm --filter @vibe/engine test && pnpm --filter web test && pnpm smoke:web",
+    "test:engine": "pnpm --filter @vibe/engine test",
+    "test:content": "pnpm --filter web test:content",
+    "test:unit": "pnpm test:engine && pnpm test:content"
   },
   "devDependencies": {
     "tsx": "^4.20.0",

@@ -6,43 +6,83 @@ import { useEffect, useState } from "react";
 import { AuthNav } from "@/components/AuthNav";
 import { BrandMark } from "@/components/BrandMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { isAuthConfigured } from "@/lib/supabase/config";
 import { SITE_NAME } from "@/lib/site";
 
 const links = [
-  { href: "/#features", label: "Features" },
   { href: "/product", label: "Product" },
-  { href: "/tools/gravity-audit", label: "Tools" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/blog", label: "Blog" },
-  { href: "/newsletter", label: "Newsletter" },
-  { href: "/vc-brain", label: "VC Brain" },
   { href: "/get-started", label: "Get started" },
+  { href: "/blog", label: "Blog" },
+  { href: "/demo", label: "Demo" },
 ];
 
-export function Nav() {
+type NavProps = {
+  initialAuthed?: boolean;
+  initialUserEmail?: string | null;
+};
+
+export function Nav({
+  initialAuthed = false,
+  initialUserEmail,
+}: NavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [authed, setAuthed] = useState(initialAuthed);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    setAuthed(initialAuthed);
+
+    if (!isAuthConfigured()) return;
+
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+
+    void (async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!cancelled) setAuthed(Boolean(sessionData.session?.user));
+
+        const listener = supabase.auth.onAuthStateChange((_event, session) => {
+          if (!cancelled) setAuthed(Boolean(session?.user));
+        });
+        unsubscribe = listener.data.subscription.unsubscribe;
+      } catch {
+        if (!cancelled) setAuthed(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [pathname, initialAuthed]);
+
   if (pathname?.startsWith("/app")) return null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
-      <div className="site-shell flex h-14 items-center justify-between">
+      <div className="site-shell flex h-14 items-center justify-between gap-3">
         <Link
           href="/"
-          className="focus-ring inline-flex items-center gap-2 tracking-tight"
+          className="focus-ring inline-flex shrink-0 items-center gap-2 tracking-tight"
           aria-label={`${SITE_NAME} home`}
         >
-          <BrandMark className="h-7 w-7 shrink-0" />
-          <span className="font-display text-lg font-bold">{SITE_NAME}</span>
+          <BrandMark className="h-8 w-8 shrink-0" />
+          <span className="font-display text-lg font-bold tracking-tight">
+            <span className="text-accent">vibe</span>
+            <span className="text-ink">marketer</span>
+          </span>
         </Link>
 
         <nav
-          className="hidden items-center gap-5 lg:!flex"
+          className="hidden items-center gap-4 lg:!flex"
           aria-label="Primary"
         >
           {links.map((l) => (
@@ -50,8 +90,7 @@ export function Nav() {
               key={l.href}
               href={l.href}
               className={`focus-ring text-sm transition hover:text-accent ${
-                pathname === l.href ||
-                (l.href !== "/#features" && pathname?.startsWith(`${l.href}/`))
+                pathname === l.href || pathname?.startsWith(`${l.href}/`)
                   ? "text-accent"
                   : "text-muted"
               }`}
@@ -60,10 +99,22 @@ export function Nav() {
             </Link>
           ))}
           <ThemeToggle compact />
-          <Link href="/app" className="btn-ghost focus-ring !px-3 !py-1.5 text-sm">
-            Open app
-          </Link>
-          <AuthNav />
+          {/* One account action cluster — not mixed with Start free + Open app */}
+          {authed ? (
+            <Link
+              href="/app/cmo"
+              className="btn-primary focus-ring !px-3 !py-1.5 text-sm"
+            >
+              Dashboard
+            </Link>
+          ) : null}
+          <AuthNav
+            initialUser={
+              initialAuthed
+                ? { email: initialUserEmail ?? null }
+                : null
+            }
+          />
         </nav>
 
         <div className="flex items-center gap-2 lg:!hidden">
@@ -86,44 +137,45 @@ export function Nav() {
           className="border-t border-line px-4 py-3 lg:hidden"
           aria-label="Mobile"
         >
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-1">
             {links.map((l) => (
               <li key={l.href}>
                 <Link
                   href={l.href}
-                  className="focus-ring block text-sm text-muted hover:text-accent"
+                  className="focus-ring block rounded px-2 py-2.5 text-sm text-muted hover:bg-bg-elevated hover:text-accent"
                   onClick={() => setOpen(false)}
                 >
                   {l.label}
                 </Link>
               </li>
             ))}
-            <li>
-              <Link
-                href="/app"
-                className="focus-ring block text-sm text-accent"
-                onClick={() => setOpen(false)}
-              >
-                Open app
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/signup"
-                className="focus-ring block text-sm font-semibold text-ink"
-                onClick={() => setOpen(false)}
-              >
-                Start free
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/login"
-                className="focus-ring block text-sm text-muted hover:text-accent"
-                onClick={() => setOpen(false)}
-              >
-                Sign in
-              </Link>
+            <li className="mt-3 border-t border-line pt-3">
+              {authed ? (
+                <Link
+                  href="/app/cmo"
+                  className="btn-primary focus-ring w-full !py-2.5 text-center text-sm"
+                  onClick={() => setOpen(false)}
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    href="/signup"
+                    className="btn-primary focus-ring w-full !py-2.5 text-center text-sm"
+                    onClick={() => setOpen(false)}
+                  >
+                    Start free
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="btn-ghost focus-ring w-full !py-2.5 text-center text-sm"
+                    onClick={() => setOpen(false)}
+                  >
+                    Sign in
+                  </Link>
+                </div>
+              )}
             </li>
             <li className="pt-2">
               <ThemeToggle />

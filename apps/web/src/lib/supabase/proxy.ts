@@ -55,8 +55,23 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const { data } = await supabase.auth.getClaims();
-  const authed = Boolean(data?.claims?.sub);
+  // Prefer getUser — refreshes session; clear stale refresh tokens quietly.
+  let authed = false;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (
+      error &&
+      (error.code === "refresh_token_not_found" ||
+        /refresh token/i.test(error.message || ""))
+    ) {
+      await supabase.auth.signOut({ scope: "local" });
+      authed = false;
+    } else {
+      authed = Boolean(data.user?.id);
+    }
+  } catch {
+    authed = false;
+  }
 
   const path = request.nextUrl.pathname;
   const isApp = path === "/app" || path.startsWith("/app/");

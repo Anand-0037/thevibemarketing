@@ -19,11 +19,34 @@ import {
   dualWriteSignal,
   dualWriteThesis,
   dualWriteTrace,
+  fetchFounderFromPostgres,
   fetchStoreBundleFromPostgres,
   isPostgresDualEnabled,
 } from "./postgres-dual";
 import { projectRoot } from "./paths";
 import { getWorkspaceOwnerId } from "./workspace-context";
+
+/** Merge durable Postgres rows with instance-local /tmp rows (union by id). */
+function unionById<T extends { id: string }>(
+  primary: T[],
+  secondary: T[],
+): T[] {
+  const map = new Map<string, T>();
+  for (const row of secondary) map.set(row.id, row);
+  // Primary (Postgres) wins on conflict — durable truth.
+  for (const row of primary) map.set(row.id, row);
+  return [...map.values()];
+}
+
+function unionSignals(
+  primary: Signal[],
+  secondary: Signal[],
+): Signal[] {
+  const map = new Map<string, Signal>();
+  for (const row of secondary) map.set(row.id, row);
+  for (const row of primary) map.set(row.id, row);
+  return [...map.values()];
+}
 
 function dualWriteFailClosed(): boolean {
   // When dual-write is on, never report success if Postgres failed.
@@ -50,15 +73,23 @@ async function runDualWrite(
  */
 class DualMemoryStore extends MemoryStore {
   private pgHydrated = false;
+  private lastHydrateAt = 0;
 
   override async load(): Promise<StoreData> {
     const local = await super.load();
-    // Re-hydrate when empty — Vercel routes hit different instances; /tmp is not shared.
-    if (this.pgHydrated && local.founders.length > 0) {
+    // Re-hydrate from Postgres regularly — /tmp is per-instance and not shared.
+    // Skip only within a short warm window on the same instance.
+    const warmMs = 8_000;
+    if (
+      this.pgHydrated &&
+      local.founders.length > 0 &&
+      Date.now() - this.lastHydrateAt < warmMs
+    ) {
       return local;
     }
     const bundle = await fetchStoreBundleFromPostgres();
     this.pgHydrated = true;
+    this.lastHydrateAt = Date.now();
     if (
       bundle &&
       (bundle.founders.length ||
@@ -67,38 +98,68 @@ class DualMemoryStore extends MemoryStore {
         bundle.memos.length ||
         bundle.thesis)
     ) {
-      // Keep warm JSON opportunity data if Postgres hydrate is still catching up
-      // (migration lag / first dual-write after enable).
-      const founderIds = new Set(bundle.founders.map((f) => f.id));
-      const founders = bundle.founders.map((f) => {
+      // Union merge: never drop instance-local founders that dual-write has not
+      // yet been visible on a cold instance — and never drop durable PG rows.
+      const founders = unionById(bundle.founders, local.founders).map((f) => {
         if (f.claims?.length) return f;
         const loc = local.founders.find((lf) => lf.id === f.id);
         return loc?.claims?.length ? { ...f, claims: loc.claims } : f;
       });
-      const products =
-        bundle.products.length > 0
-          ? bundle.products
-          : local.products.filter((p) => founderIds.has(p.founder_id));
+      const products = unionById(bundle.products, local.products);
+      const signals = unionSignals(bundle.signals, local.signals);
+      const screenings = [
+        ...local.screenings.filter(
+          (s) =>
+            !bundle.screenings.some(
+              (b) =>
+                b.founder_id === s.founder_id && b.scored_at === s.scored_at,
+            ),
+        ),
+        ...bundle.screenings,
+      ];
+      const memos = unionById(bundle.memos, local.memos);
+      const traces = [
+        ...local.traces.filter(
+          (t) =>
+            !bundle.traces.some(
+              (b) => b.run_id === t.run_id && b.step === t.step && b.ts === t.ts,
+            ),
+        ),
+        ...bundle.traces,
+      ];
       const merged: StoreData = {
         ...bundle,
-        founders: founders.length ? founders : local.founders,
+        founders,
         products,
-        screenings: bundle.screenings.length
-          ? bundle.screenings
-          : local.screenings.filter((s) => founderIds.has(s.founder_id)),
-        memos: bundle.memos.length
-          ? bundle.memos
-          : local.memos.filter((m) => founderIds.has(m.founder_id)),
-        traces: bundle.traces.length ? bundle.traces : local.traces,
+        signals,
+        screenings,
+        memos,
+        traces,
         thesis: bundle.thesis ?? local.thesis,
       };
       await this.replaceAll(merged);
       console.info(
-        `[store] Hydrated ${merged.founders.length} founders · ${merged.products.length} products from Postgres`,
+        `[store] Hydrated ${merged.founders.length} founders · ${merged.products.length} products from Postgres (union)`,
       );
       return merged;
     }
     return local;
+  }
+
+  override async getFounder(id: string): Promise<Founder | undefined> {
+    const hit = await super.getFounder(id);
+    if (hit) return hit;
+    // Cold instance / hydrate lag: point-read durable Postgres for this owner.
+    try {
+      const fromPg = await fetchFounderFromPostgres(id);
+      if (fromPg) {
+        await this.upsertFounder(fromPg);
+        return fromPg;
+      }
+    } catch (e) {
+      console.error("[store] getFounder PG fallback", e);
+    }
+    return undefined;
   }
 
   override async addSignal(

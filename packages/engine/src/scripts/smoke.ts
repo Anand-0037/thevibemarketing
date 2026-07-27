@@ -1,6 +1,11 @@
 /**
  * Quick gravity inversion smoke (asserting).
- * Fuller e2e: `pnpm --filter @vibe/engine smoke` → packages/engine/scripts/smoke.ts
+ *
+ * Two smoke entrypoints (intentional, not duplicates):
+ * - This file — fast unit-style gravity/score asserts
+ *   → monorepo: `pnpm smoke` → `tsx src/scripts/smoke.ts`
+ * - packages/engine/scripts/smoke.ts — fuller MemoryStore e2e
+ *   → monorepo: `pnpm smoke:full` → `@vibe/engine` `npm run smoke`
  */
 import { composeFounderScoreFromGravity } from "../scoring/founder-score";
 import { scoreGravityFromSignals } from "../scoring/gravity";

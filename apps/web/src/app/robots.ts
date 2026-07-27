@@ -13,14 +13,24 @@ export default function robots(): MetadataRoute.Robots {
     "/guides",
     "/tools/",
     "/get-started",
-    "/login",
-    "/signup",
+    "/demo",
+    "/newsletter",
     "/llms.txt",
     "/llms-full.txt",
+    "/site-index.txt",
     "/feed.jsonl",
+    "/answers.json",
     "/rss.xml",
     "/humans.txt",
     "/brand/",
+  ];
+  const disallowPrivate = [
+    "/app/",
+    "/api/",
+    "/login",
+    "/signup",
+    "/checkout/",
+    "/auth/",
   ];
 
   return {
@@ -28,43 +38,43 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: allowPublic,
-        disallow: ["/app/", "/api/", "/_next/"],
+        disallow: disallowPrivate,
       },
       // Explicit AEO crawler allow-list (same public surface)
       {
         userAgent: "GPTBot",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
       {
         userAgent: "ChatGPT-User",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
       {
         userAgent: "Google-Extended",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
       {
         userAgent: "PerplexityBot",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
       {
         userAgent: "ClaudeBot",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
       {
         userAgent: "anthropic-ai",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
       {
         userAgent: "Applebot-Extended",
         allow: allowPublic,
-        disallow: ["/app/", "/api/"],
+        disallow: disallowPrivate,
       },
     ],
     sitemap: siteUrl("/sitemap.xml"),

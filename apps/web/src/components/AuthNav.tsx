@@ -6,31 +6,75 @@ import { isAuthConfigured } from "@/lib/supabase/config";
 
 type UserBrief = { email: string | null };
 
-export function AuthNav() {
+export function AuthNav({ initialUser = null }: {
+  initialUser?: UserBrief | null;
+}) {
   const [user, setUser] = useState<UserBrief | null | undefined>(undefined);
   const configured = isAuthConfigured();
 
   useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+
+    // Prefer server-passed session when present (App shell / marketing nav).
+    if (initialUser) {
+      setUser(initialUser);
+    }
+
     if (!configured) {
       setUser(null);
       return;
     }
-    let cancelled = false;
+
+    const hydrate = (authUser: { email?: string | null } | null) => {
+      if (cancelled) return;
+      setUser(authUser ? { email: authUser.email ?? null } : null);
+    };
+
     void (async () => {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const { data } = await supabase.auth.getUser();
-        if (cancelled) return;
-        setUser(data.user ? { email: data.user.email ?? null } : null);
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!cancelled) {
+          hydrate(sessionData.session?.user ?? null);
+        }
+
+        if (!sessionData.session?.user) {
+          const { data, error } = await supabase.auth.getUser();
+          if (error) {
+            if (
+              cancelled
+                ||
+              !(
+                error.code === "refresh_token_not_found" ||
+                /refresh token/i.test(error.message || "")
+              )
+            ) {
+              return;
+            }
+            await supabase.auth.signOut({ scope: "local" });
+            hydrate(null);
+            return;
+          }
+          hydrate(data.user);
+        }
+
+        const listener = supabase.auth.onAuthStateChange((_event, session) => {
+          if (cancelled) return;
+          hydrate(session?.user ?? null);
+        });
+        unsubscribe = listener.data.subscription.unsubscribe;
       } catch {
         if (!cancelled) setUser(null);
       }
     })();
+
     return () => {
       cancelled = true;
+      if (unsubscribe) unsubscribe();
     };
-  }, [configured]);
+  }, [configured, initialUser]);
 
   if (user === undefined) {
     return (

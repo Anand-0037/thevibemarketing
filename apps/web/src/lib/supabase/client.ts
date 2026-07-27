@@ -8,7 +8,7 @@ import {
 export function createClient() {
   if (!isAuthConfigured()) {
     throw new Error(
-      "Auth is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or ANON_KEY).",
+      "Auth is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in env.",
     );
   }
   return createBrowserClient(getSupabaseUrl()!, getSupabasePublishableKey()!);

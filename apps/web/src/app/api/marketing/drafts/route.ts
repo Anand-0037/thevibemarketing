@@ -32,19 +32,29 @@ export async function POST(req: Request) {
         body?: string;
       };
       const platform = (body.platform || body.channel) as Platform | undefined;
-      if (!platform || !PLATFORMS.has(platform) || !body.body) {
+      const content = typeof body.body === "string" ? body.body.trim() : "";
+      const title = typeof body.title === "string" ? body.title.trim() : "";
+      if (!platform || !PLATFORMS.has(platform) || !content) {
         return NextResponse.json(
           { error: "platform/channel (x|linkedin|reddit) and body required" },
+          { status: 400 },
+        );
+      }
+      if (content.length > 20_000 || title.length > 300) {
+        return NextResponse.json(
+          { error: "body must be at most 20,000 characters and title at most 300 characters" },
           { status: 400 },
         );
       }
       const store = getMarketingStore();
       const post = await store.upsertPost({
         platform,
-        title: body.title ?? null,
-        body: body.body,
+        title: title || null,
+        body: content,
         status: "pending",
         autonomy: "L1",
+        rationale: "Human-authored draft",
+        note: "human_manual",
       });
       return NextResponse.json({ draft: post, post });
     } catch (e) {

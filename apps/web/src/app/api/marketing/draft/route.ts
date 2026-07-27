@@ -1,13 +1,25 @@
 import { randomUUID } from "node:crypto";
 import {
   completeJsonDetailed,
+  isSupermemoryConfigured,
   recallBrandMemory,
   UNTRUSTED_SCRAPE_SYSTEM,
   wrapUntrustedScrapedData,
 } from "@vibe/engine";
 import { NextResponse } from "next/server";
 import {
+  currentOwnerId,
+  toBrandMemoryInput,
+} from "@/lib/brand-memory-context";
+import {
+  checkMarketingExpensiveLimit,
+  recordGeneration,
+} from "@/lib/marketing-approve";
+import { canUseFeature } from "@/lib/payments/feature-gates";
+import { resolveEffectiveTier } from "@/lib/payments/run-meters";
+import {
   getMarketingStore,
+  isLowRiskPlatform,
   type Platform,
   type Post,
 } from "@/lib/marketing-store";
@@ -23,54 +35,13 @@ type DraftSpec = {
   rationale: string;
 };
 
-function templates(
-  brand: {
-    name: string;
-    oneliner: string;
-    icp: string;
-    tone: string;
-    pillars: string[];
-    url: string;
-  },
-  memoryLines: string[],
-): DraftSpec[] {
-  const pillar = brand.pillars[0] ?? "distribution";
-  const shortName = brand.name;
-  const memoryHint =
-    memoryLines.length > 0
-      ? `\n\n[Brand memory]\n${memoryLines
-          .slice(0, 4)
-          .map((l) => `· ${l}`)
-          .join("\n")}`
-      : "";
-
-  return [
-    {
-      platform: "x",
-      title: null,
-      body: `${brand.oneliner}\n\nBuilt for ${brand.icp}.\nVoice: ${brand.tone}.\n\nPillar: ${pillar}.\n\n${brand.url}${memoryHint}`,
-      rationale: memoryLines.length
-        ? `Draft for X using live Supermemory recall (${memoryLines.length} lines).`
-        : `Template draft for X from local brand context (${shortName}).`,
-    },
-    {
-      platform: "linkedin",
-      title: `Why ${shortName} exists`,
-      body: `Technical founders can ship product in a weekend. Getting strangers to care is the hard part.\n\n${shortName}: ${brand.oneliner}\n\nWe serve ${brand.icp} with a ${brand.tone} voice. Pillars start with ${pillar}.\n\nEvery draft hits a human approval queue (autonomy L1) before it ships.${memoryHint}\n\n${brand.url}`,
-      rationale: memoryLines.length
-        ? `Draft for LinkedIn grounded in Supermemory brand facts.`
-        : `Template draft for LinkedIn from brand context (${shortName}).`,
-    },
-    {
-      platform: "reddit",
-      title: `Dogfooding our own marketing loop — feedback welcome`,
-      body: `We're building ${shortName} (${brand.url}) — ${brand.oneliner}\n\nICP: ${brand.icp}. Voice: ${brand.tone}.\n\nThe loop: scan → draft on-brand → HITL approve → publish.${memoryHint}\n\nWhich channel burns the most time that you'd want an agent to own first?`,
-      rationale: memoryLines.length
-        ? `Draft for Reddit with persistent Supermemory context.`
-        : `Template draft for Reddit from brand context (${shortName}).`,
-    },
-  ];
-}
+type DraftFocus = {
+  /** Single-platform draft (campaign day) instead of 3-channel batch. */
+  platform?: Platform;
+  goal?: string;
+  draftHint?: string;
+  day?: number;
+};
 
 async function openaiDrafts(
   brand: {
@@ -82,6 +53,7 @@ async function openaiDrafts(
     url: string;
   },
   memoryLines: string[],
+  focus?: DraftFocus,
 ): Promise<{ drafts: DraftSpec[] | null; error?: string }> {
   if (!process.env.OPENAI_API_KEY?.trim()) {
     return { drafts: null, error: "OPENAI_API_KEY unset" };
@@ -93,11 +65,37 @@ async function openaiDrafts(
       : `${brand.name}\n${brand.oneliner}\nICP: ${brand.icp}\nTone: ${brand.tone}\nPillars: ${brand.pillars.join(", ")}\n${brand.url}`,
   );
 
-  const schema = `{
+  const single =
+    focus?.platform === "x" ||
+    focus?.platform === "linkedin" ||
+    focus?.platform === "reddit"
+      ? focus.platform
+      : null;
+
+  const schema = single
+    ? `{
+  "drafts": [
+    { "platform": "${single}", "title": string|null, "body": string, "rationale": string }
+  ]
+}`
+    : `{
   "drafts": [
     { "platform": "x"|"linkedin"|"reddit", "title": string|null, "body": string, "rationale": string }
   ]
 }`;
+
+  const focusBlock = single
+    ? `
+Campaign day focus (optional):
+day=${focus?.day ?? "—"}
+channel=${single}
+goal=${focus?.goal || "on-brand distribution"}
+draft_hint=${focus?.draftHint || "Stay helpful and specific"}
+
+Write exactly 1 draft for platform "${single}" only.`
+    : `
+Write exactly 3 drafts (x, linkedin, reddit). Stay on-voice. No fake traction numbers.
+X: short. LinkedIn: 2–3 short paragraphs. Reddit: helpful, not salesy.`;
 
   const user = `${memoryBlock}
 
@@ -108,9 +106,7 @@ icp=${brand.icp}
 tone=${brand.tone}
 pillars=${brand.pillars.join(", ")}
 url=${brand.url}
-
-Write exactly 3 drafts (x, linkedin, reddit). Stay on-voice. No fake traction numbers.
-X: short. LinkedIn: 2–3 short paragraphs. Reddit: helpful, not salesy.`;
+${focusBlock}`;
 
   const parsed = await completeJsonDetailed(user, schema, {
     system: `${UNTRUSTED_SCRAPE_SYSTEM}
@@ -125,15 +121,20 @@ Also respect brand tone/ICP. Reply with JSON only matching the schema.`,
     return { drafts: null, error: "empty JSON" };
   }
   const drafts = (parsed.data as { drafts?: unknown }).drafts;
-  if (!Array.isArray(drafts) || drafts.length < 3) {
-    return { drafts: null, error: "model returned <3 drafts" };
+  const minCount = single ? 1 : 3;
+  if (!Array.isArray(drafts) || drafts.length < minCount) {
+    return {
+      drafts: null,
+      error: `model returned <${minCount} draft(s)`,
+    };
   }
 
   const out: DraftSpec[] = [];
   for (const d of drafts) {
     if (!d || typeof d !== "object") continue;
     const o = d as Record<string, unknown>;
-    const platform = String(o.platform || "");
+    let platform = String(o.platform || "");
+    if (single) platform = single;
     if (platform !== "x" && platform !== "linkedin" && platform !== "reddit") {
       continue;
     }
@@ -146,88 +147,218 @@ Also respect brand tone/ICP. Reply with JSON only matching the schema.`,
       rationale:
         typeof o.rationale === "string"
           ? o.rationale
-          : "OpenAI draft with Supermemory brand context",
+          : single
+            ? `Campaign day ${focus?.day ?? "?"} · ${single}`
+            : "OpenAI draft with Supermemory brand context",
     });
+  }
+  if (single) {
+    return out.length >= 1
+      ? { drafts: out.slice(0, 1) }
+      : { drafts: null, error: "could not parse focused draft" };
   }
   return out.length >= 3
     ? { drafts: out.slice(0, 3) }
     : { drafts: null, error: "could not parse 3 valid drafts" };
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   return withMarketingStore(async () => {
-  const store = getMarketingStore();
-  const brand = await store.getBrand();
+    const ownerId = currentOwnerId();
+    const limited = await checkMarketingExpensiveLimit(ownerId, "draft");
+    if (!limited.ok) return limited.response;
 
-  if (!brand) {
-    return NextResponse.json(
-      {
-        error:
-          "Set your brand first (onboarding or Brand URL) before drafting.",
-      },
-      { status: 400 },
-    );
-  }
+    let focus: DraftFocus = {};
+    try {
+      const body = (await req.json()) as {
+        platform?: string;
+        goal?: string;
+        draft_hint?: string;
+        draftHint?: string;
+        day?: number;
+      };
+      const p = String(body.platform || "").toLowerCase();
+      if (p === "x" || p === "linkedin" || p === "reddit") {
+        focus.platform = p;
+      }
+      if (typeof body.goal === "string" && body.goal.trim()) {
+        focus.goal = body.goal.trim();
+      }
+      const hint = body.draft_hint ?? body.draftHint;
+      if (typeof hint === "string" && hint.trim()) {
+        focus.draftHint = hint.trim();
+      }
+      if (typeof body.day === "number" && Number.isFinite(body.day)) {
+        focus.day = Math.floor(body.day);
+      }
+    } catch {
+      focus = {};
+    }
 
-  const recall = await recallBrandMemory({
-    brandName: brand.name,
-    q: "tone voice ICP pillars positioning do not write off-brand",
-  });
+    // email/blog campaign days map to linkedin long-form for HITL
+    // (caller may pass platform already mapped)
 
-  const ai = await openaiDrafts(brand, recall.contextLines);
-  const drafts = ai.drafts ?? templates(brand, recall.contextLines);
-  const source = ai.drafts
-    ? recall.contextLines.length
-      ? "openai+supermemory"
-      : "openai+local-brand"
-    : recall.contextLines.length
-      ? "supermemory+template"
-      : "template";
+    const store = getMarketingStore();
+    const brand = await store.getBrand();
 
-  const created: Post[] = [];
-
-  for (const d of drafts) {
-    const post = await store.upsertPost({
-      id: `mp_draft_${randomUUID().slice(0, 8)}`,
-      platform: d.platform,
-      title: d.title,
-      body: d.body,
-      status: "pending",
-      autonomy: "L1",
-      rationale: d.rationale,
-      brand: brand.name.toLowerCase().replace(/\s+/g, ""),
-      note: source,
-    });
-    created.push(post);
-  }
-
-  await store.addLoop({
-    id: `loop_${randomUUID().slice(0, 8)}`,
-    name: "content-draft",
-    started_at: new Date().toISOString(),
-    finished_at: new Date().toISOString(),
-    status: "done",
-    posts_created: created.length,
-    note: source,
-  });
-
-  return NextResponse.json({
-    posts: created,
-    brand,
-    source,
-    openai: ai.drafts
-      ? { ok: true }
-      : {
-          ok: false,
-          fallback: "template",
-          detail: ai.error || "unavailable",
+    if (!brand) {
+      return NextResponse.json(
+        {
+          error:
+            "Set your brand first (onboarding or Brand URL) before drafting.",
         },
-    supermemory: {
-      configured: recall.configured,
-      containerTag: recall.containerTag,
-      contextLines: recall.contextLines,
-      live: recall.contextLines.length > 0,
-    },
-  });
+        { status: 400 },
+      );
+    }
+
+    if (!isSupermemoryConfigured()) {
+      return NextResponse.json(
+        {
+          error:
+            "SUPERMEMORY_API_KEY required for retrieval-indexed drafts. Structured brand alone is not enough in production.",
+        },
+        { status: 502 },
+      );
+    }
+
+    const brandInput = toBrandMemoryInput(brand);
+    const recallTask =
+      focus.platform === "x"
+        ? "draft_x"
+        : focus.platform === "linkedin"
+          ? "draft_linkedin"
+          : focus.platform === "reddit"
+            ? "draft_reddit"
+            : "campaign";
+    const recall = await recallBrandMemory({
+      brandName: brand.name,
+      ownerId,
+      brand: brandInput,
+      task: recallTask,
+      q: focus.goal || focus.draftHint,
+    });
+    if (recall.contextLines.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Brand memory empty — complete onboarding / POST /api/marketing/memory sync first.",
+        },
+        { status: 502 },
+      );
+    }
+    if (!recall.live) {
+      return NextResponse.json(
+        {
+          error:
+            "Brand memory retrieval failed — drafts were not generated from stale or unverified context. Retry after the memory provider recovers.",
+          memory: {
+            configured: recall.configured,
+            live: false,
+            layers: recall.layers,
+          },
+        },
+        { status: 502 },
+      );
+    }
+
+    const ai = await openaiDrafts(brand, recall.contextLines, focus);
+    if (!ai.drafts) {
+      return NextResponse.json(
+        {
+          error: `Live model draft generation failed: ${ai.error || "unavailable"}`,
+        },
+        { status: 502 },
+      );
+    }
+    const drafts = ai.drafts;
+    const source = focus.platform
+      ? `openai+supermemory · day=${focus.day ?? "—"} · ${focus.platform}`
+      : "openai+supermemory";
+    const autonomy = await store.getAutonomy();
+
+    const created: Post[] = [];
+
+    for (const d of drafts) {
+      const post = await store.upsertPost({
+        id: `mp_draft_${randomUUID().slice(0, 8)}`,
+        platform: d.platform,
+        title: d.title,
+        body: d.body,
+        status: "pending",
+        autonomy,
+        rationale: d.rationale,
+        brand: brand.name.toLowerCase().replace(/\s+/g, ""),
+        note: source,
+      });
+      created.push(post);
+    }
+
+    // L2: auto-queue low-risk (X / LinkedIn) only — never auto-publish.
+    // Requires Growth+ (l2_autonomy feature). Reddit stays pending.
+    let autoQueued = 0;
+    const tier = await resolveEffectiveTier(ownerId);
+    if (autonomy === "L2" && canUseFeature(tier, "l2_autonomy")) {
+      for (let i = 0; i < created.length; i++) {
+        const p = created[i];
+        if (!isLowRiskPlatform(p.platform)) continue;
+        const queued = await store.queuePost(p.id, "l2_auto");
+        if (queued) {
+          created[i] = queued;
+          if (queued.status === "queued") autoQueued += 1;
+        }
+      }
+    }
+
+    await store.addLoop({
+      id: `loop_${randomUUID().slice(0, 8)}`,
+      name: "content-draft",
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+      status: "done",
+      posts_created: created.length,
+      note:
+        autonomy === "L2"
+          ? `${source} · L2 auto-queued ${autoQueued} low-risk (not published)`
+          : source,
+    });
+
+    const meter = await recordGeneration("draft");
+
+    return NextResponse.json({
+      posts: created,
+      brand,
+      source,
+      autonomy,
+      auto_queued: autoQueued,
+      meter: {
+        used: meter.used,
+        limit: meter.limit,
+        remaining: meter.remaining,
+        period: meter.period,
+      },
+      focus: focus.platform
+        ? {
+            platform: focus.platform,
+            day: focus.day ?? null,
+            goal: focus.goal ?? null,
+          }
+        : null,
+      openai: { ok: true },
+      memory: {
+        configured: recall.configured,
+        containerTag: recall.containerTag,
+        task: recall.task,
+        layers: recall.layers,
+        coreLines: recall.coreLines,
+        contextLines: recall.contextLines,
+        live: recall.live,
+      },
+      supermemory: {
+        configured: recall.configured,
+        containerTag: recall.containerTag,
+        contextLines: recall.contextLines,
+        live: recall.live,
+      },
+    });
   });
 }
