@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/internal/publishing/drain",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
