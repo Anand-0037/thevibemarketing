@@ -1,7 +1,8 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/internal/publishing/drain?secret=%INTERNAL_WORKER_SECRET%&batchSize=5&leaseOwner=vercel-cron",
+      "path": "/api/internal/publishing/drain",
       "schedule": "*/5 * * * *"
     }
   ]

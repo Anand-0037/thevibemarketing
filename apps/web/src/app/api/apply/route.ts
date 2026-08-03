@@ -13,6 +13,7 @@ import {
   assertPdfMagic,
   preflightRemoteDeck,
 } from "@/lib/deck-guards";
+import { checkPublicApplyAdmission } from "@/lib/public-apply-admission";
 import { getStore } from "@/lib/store";
 import { getSupabaseAdmin, hasSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeHttpUrl } from "@/lib/url";
@@ -165,6 +166,21 @@ async function uploadDeckToStorage(
 }
 
 export async function POST(req: Request) {
+  const admission = checkPublicApplyAdmission(req.headers);
+  if (!admission.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Too many applications. Try again later.",
+        retry_after_seconds: admission.retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(admission.retryAfterSec) },
+      },
+    );
+  }
+
   let body: ParsedApply;
   try {
     body = await parseBody(req);

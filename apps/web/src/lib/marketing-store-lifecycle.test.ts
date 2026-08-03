@@ -69,6 +69,7 @@ async function runLifecycleTests() {
     assert.equal(edited.body, "Edited draft");
 
     const rejected = await pendingSeed.rejectPost(pending.id, "bad tone");
+    assert.ok(rejected);
     assert.equal(rejected.status, "rejected");
     await assertRejectsCode(
       () => pendingSeed.updatePendingPostContent(pending.id, { body: "nope" }),
@@ -76,24 +77,29 @@ async function runLifecycleTests() {
     );
 
     const restored = await pendingSeed.restoreRejectedPost(pending.id);
+    assert.ok(restored);
     assert.equal(restored.status, "pending");
 
     const queued = await pendingSeed.queuePost(pending.id, "hitl_approve");
+    assert.ok(queued);
     assert.equal(queued.status, "queued");
     await assertRejectsCode(
       () => pendingSeed.updatePendingPostContent(pending.id, { title: "blocked" }),
       "POST_IMMUTABLE",
     );
     const cancelled = await pendingSeed.cancelQueuedPost(pending.id);
+    assert.ok(cancelled);
     assert.equal(cancelled.status, "pending");
 
     const queuedAgain = await pendingSeed.queuePost(pending.id, "hitl_approve");
+    assert.ok(queuedAgain);
     assert.equal(queuedAgain.status, "queued");
     const published = await pendingSeed.confirmPublished(pending.id, {
       providerPostId: "1234567890123456789",
       providerUrl: "https://x.com/status/1",
       note: "published by test",
     });
+    assert.ok(published);
     assert.equal(published.status, "published");
     assert.equal(published.provider_post_id, "1234567890123456789");
     assert.equal(published.provider_url, "https://x.com/status/1");
@@ -113,6 +119,7 @@ async function runLifecycleTests() {
     const sameReplay = await pendingSeed.confirmPublished(pending.id, {
       providerPostId: "1234567890123456789",
     });
+    assert.ok(sameReplay);
     assert.equal(sameReplay.provider_post_id, "1234567890123456789");
     assert.equal(sameReplay.status, "published");
 

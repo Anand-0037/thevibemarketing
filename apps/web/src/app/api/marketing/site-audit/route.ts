@@ -35,13 +35,18 @@ export async function POST(req: Request) {
 
     const scorecard = await runSiteScorecard(raw);
     if (!scorecard.ok) {
+      const status =
+        scorecard.error_code === "INVALID_URL" ||
+        scorecard.error_code === "UNSAFE_URL"
+          ? 400
+          : 502;
       return NextResponse.json(
         {
           error:
             scorecard.error ||
             "Live site audit could not fetch the target URL. No score was produced.",
         },
-        { status: 502 },
+        { status },
       );
     }
     return NextResponse.json({
@@ -66,9 +71,14 @@ export async function GET(req: Request) {
     }
     const scorecard = await runSiteScorecard(raw);
     if (!scorecard.ok) {
+      const status =
+        scorecard.error_code === "INVALID_URL" ||
+        scorecard.error_code === "UNSAFE_URL"
+          ? 400
+          : 502;
       return NextResponse.json(
         { error: scorecard.error || "Live site audit could not fetch the target URL." },
-        { status: 502 },
+        { status },
       );
     }
     return NextResponse.json({ ok: true, scorecard });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isProviderConfirmedPost } from "@/lib/marketing-report";
 import { getMarketingStore } from "@/lib/marketing-store";
 import { withMarketingStore } from "@/lib/with-marketing";
 
@@ -20,11 +21,18 @@ export async function GET() {
     const inWeek = (iso: string) => new Date(iso).getTime() >= weekAgo;
 
     const postsWeek = posts.filter((p) => inWeek(p.created_at));
+    const providerConfirmedCreatedWeek = postsWeek.filter(
+      isProviderConfirmedPost,
+    );
+    const unverifiedPublishedWeek = postsWeek.filter(
+      (p) => p.status === "published" && !isProviderConfirmedPost(p),
+    );
     const byStatus = {
       pending: postsWeek.filter((p) => p.status === "pending").length,
       approved: postsWeek.filter((p) => p.status === "approved").length,
       rejected: postsWeek.filter((p) => p.status === "rejected").length,
-      published: postsWeek.filter((p) => p.status === "published").length,
+      published: providerConfirmedCreatedWeek.length,
+      unverified_published: unverifiedPublishedWeek.length,
       queued: postsWeek.filter((p) => p.status === "queued").length,
     };
     const byPlatform: Record<string, number> = {};
@@ -36,15 +44,13 @@ export async function GET() {
     const pubsWeek = publishLog.filter((l) => inWeek(l.at));
     const providerConfirmedWeek = posts.filter(
       (p) =>
-        p.status === "published" &&
-        Boolean(p.published_at) &&
-        inWeek(p.published_at!),
+        isProviderConfirmedPost(p) && inWeek(p.published_at),
     );
     const approvedOrQueuedWeek = postsWeek.filter(
       (p) =>
         p.status === "approved" ||
         p.status === "queued" ||
-        p.status === "published",
+        isProviderConfirmedPost(p),
     );
 
     const tip =
@@ -91,7 +97,7 @@ export async function GET() {
       },
       tip,
       honest:
-        "Workspace activity only. Queued means approved for delivery; provider-confirmed means a connected provider returned a post ID/URL. Third-party reach, clicks, and conversions are unavailable until analytics is connected.",
+        "Workspace activity only. Queued means approved for delivery; provider-confirmed requires a provider post ID and publish timestamp. Rows without that evidence are excluded from published counts. Third-party reach, clicks, and conversions are unavailable until analytics is connected.",
     });
   });
 }

@@ -11,6 +11,21 @@ function assert(cond: unknown, msg: string): void {
 const bad = await runSiteScorecard("not a url !!!");
 assert(!bad.ok, "invalid url fails");
 assert(bad.scores.overall === 0, "overall 0 on fail");
+assert(bad.error_code === "INVALID_URL", "malformed URL is rejected before fetch");
+
+for (const unsafeUrl of [
+  "http://127.0.0.1",
+  "http://2130706433",
+  "http://169.254.169.254/latest/meta-data",
+  "http://[::1]",
+  "https://example.com:8443",
+  "https://user:password@example.com",
+]) {
+  const unsafe = await runSiteScorecard(unsafeUrl);
+  assert(!unsafe.ok, `${unsafeUrl} must fail`);
+  assert(unsafe.scores.overall === 0, `${unsafeUrl} must not produce a score`);
+  assert(unsafe.error_code === "UNSAFE_URL", `${unsafeUrl} must be classified unsafe`);
+}
 
 // Local heuristic path: HTTPS scorecard structure
 const sample = await runSiteScorecard("https://example.com");

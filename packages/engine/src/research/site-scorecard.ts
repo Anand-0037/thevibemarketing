@@ -4,6 +4,8 @@
  * Covers: fetchability, SEO basics, AEO/GEO surfaces, security basics.
  */
 
+import { fetchPublicText } from "./public-http";
+
 export type ScoreCheck = {
   id: string;
   category: "seo" | "geo" | "performance" | "a11y" | "security" | "content";
@@ -36,6 +38,7 @@ export type SiteScorecard = {
   };
   recommendations: string[];
   error?: string;
+  error_code?: "INVALID_URL" | "UNSAFE_URL" | "FETCH_FAILED";
   measured_at: string;
 };
 
@@ -66,32 +69,6 @@ function extractMeta(html: string, name: string): string | null {
   return html.match(re)?.[1] || html.match(re2)?.[1] || null;
 }
 
-async function fetchText(
-  url: string,
-  timeoutMs = 12_000,
-): Promise<{ ok: boolean; status: number; text: string; ms: number }> {
-  const t0 = Date.now();
-  try {
-    const res = await fetch(url, {
-      redirect: "follow",
-      headers: {
-        "User-Agent": "vibemarketer-scorecard/0.1 (+https://vibemarketer.fun)",
-        Accept: "text/html,application/xhtml+xml,text/plain,*/*",
-      },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    const text = await res.text();
-    return {
-      ok: res.ok,
-      status: res.status,
-      text: text.slice(0, 500_000),
-      ms: Date.now() - t0,
-    };
-  } catch {
-    return { ok: false, status: 0, text: "", ms: Date.now() - t0 };
-  }
-}
-
 function originOf(url: string): string {
   try {
     const u = new URL(url);
@@ -113,20 +90,35 @@ export async function runSiteScorecard(rawUrl: string): Promise<SiteScorecard> {
   try {
     parsed = new URL(url);
   } catch {
-    return emptyFail(url, "Invalid URL", measured_at);
+    return emptyFail(url, "Invalid URL", measured_at, "INVALID_URL");
   }
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    return emptyFail(url, "Only http(s) URLs supported", measured_at);
+    return emptyFail(
+      url,
+      "Only public http(s) URLs are supported",
+      measured_at,
+      "INVALID_URL",
+    );
   }
 
-  const home = await fetchText(parsed.toString());
-  const origin = originOf(parsed.toString());
+  const home = await fetchPublicText(parsed.toString());
+  if (!home.ok) {
+    return emptyFail(
+      parsed.toString(),
+      home.error || `Homepage fetch failed (${home.status || "network"})`,
+      measured_at,
+      home.errorCode === "UNSAFE_URL" ? "UNSAFE_URL" : "FETCH_FAILED",
+    );
+  }
+
+  const finalUrl = new URL(home.url);
+  const origin = originOf(finalUrl.toString());
   const [robots, sitemap, llms, llmsFull] = await Promise.all([
-    fetchText(`${origin}/robots.txt`, 8_000),
-    fetchText(`${origin}/sitemap.xml`, 8_000),
-    fetchText(`${origin}/llms.txt`, 8_000),
-    fetchText(`${origin}/llms-full.txt`, 8_000),
+    fetchPublicText(`${origin}/robots.txt`, 8_000),
+    fetchPublicText(`${origin}/sitemap.xml`, 8_000),
+    fetchPublicText(`${origin}/llms.txt`, 8_000),
+    fetchPublicText(`${origin}/llms-full.txt`, 8_000),
   ]);
 
   const html = home.text;
@@ -137,10 +129,10 @@ export async function runSiteScorecard(rawUrl: string): Promise<SiteScorecard> {
     id: "https",
     category: "security",
     label: "HTTPS",
-    pass: parsed.protocol === "https:",
+    pass: finalUrl.protocol === "https:",
     weight: 3,
     detail:
-      parsed.protocol === "https:"
+      finalUrl.protocol === "https:"
         ? "Site served over HTTPS"
         : "Use HTTPS for trust and SEO",
   });
@@ -337,7 +329,7 @@ export async function runSiteScorecard(rawUrl: string): Promise<SiteScorecard> {
     .map((c) => `${c.label}: ${c.detail}`);
 
   return {
-    url: parsed.toString(),
+    url: finalUrl.toString(),
     ok: home.ok,
     fetched: home.ok,
     scores: {
@@ -367,6 +359,7 @@ function emptyFail(
   url: string,
   error: string,
   measured_at: string,
+  error_code: SiteScorecard["error_code"] = "FETCH_FAILED",
 ): SiteScorecard {
   return {
     url,
@@ -390,6 +383,7 @@ function emptyFail(
     },
     recommendations: [error],
     error,
+    error_code,
     measured_at,
   };
 }

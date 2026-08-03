@@ -24,6 +24,13 @@ function isPublicApi(path: string): boolean {
   return false;
 }
 
+export function isServiceAuthenticatedApi(path: string): boolean {
+  return (
+    path === "/api/internal/publishing/drain" ||
+    path === "/api/internal/publishing/status"
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -75,7 +82,10 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isApp = path === "/app" || path.startsWith("/app/");
-  const isPrivateApi = path.startsWith("/api/") && !isPublicApi(path);
+  const isPrivateApi =
+    path.startsWith("/api/") &&
+    !isPublicApi(path) &&
+    !isServiceAuthenticatedApi(path);
 
   if (isPrivateApi && !authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

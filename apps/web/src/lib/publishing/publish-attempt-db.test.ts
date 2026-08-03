@@ -108,6 +108,108 @@ async function createAttempt(input: {
   return result.rows[0];
 }
 
+async function assertWorkerRpcPrivileges(): Promise<void> {
+  const exposed = await query<{ grantee: string; routine_name: string }>(`
+    select grantee, routine_name
+    from information_schema.routine_privileges
+    where routine_schema = 'public'
+      and routine_name in (
+        'create_or_reuse_marketing_publish_attempt',
+        'claim_marketing_outbox_job',
+        'release_expired_marketing_outbox_leases'
+      )
+      and grantee in ('PUBLIC', 'anon', 'authenticated')
+    order by routine_name, grantee;
+  `);
+  assert.deepEqual(
+    exposed.rows,
+    [],
+    "SECURITY DEFINER publishing RPCs must remain service-role only",
+  );
+
+  const serviceRole = await query<{ count: number }>(`
+    select count(*)::int as count
+    from information_schema.routine_privileges
+    where routine_schema = 'public'
+      and routine_name in (
+        'create_or_reuse_marketing_publish_attempt',
+        'claim_marketing_outbox_job',
+        'release_expired_marketing_outbox_leases'
+      )
+      and grantee = 'service_role'
+      and privilege_type = 'EXECUTE';
+  `);
+  assert.equal(
+    serviceRole.rows[0]?.count,
+    3,
+    "service role must retain access to all publishing worker RPCs",
+  );
+
+  const clientCallableDefiners = await query<{ signature: string }>(`
+    select p.oid::regprocedure::text as signature
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and (
+        has_function_privilege('anon', p.oid, 'EXECUTE')
+        or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      )
+    order by signature;
+  `);
+  assert.deepEqual(
+    clientCallableDefiners.rows,
+    [],
+    "SECURITY DEFINER functions must not be client-callable",
+  );
+
+  const clientTables = await query<{ table_name: string }>(`
+    select c.relname as table_name
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p')
+      and (
+        has_table_privilege('anon', c.oid, 'SELECT')
+        or has_table_privilege('anon', c.oid, 'INSERT')
+        or has_table_privilege('anon', c.oid, 'UPDATE')
+        or has_table_privilege('anon', c.oid, 'DELETE')
+        or has_table_privilege('authenticated', c.oid, 'SELECT')
+        or has_table_privilege('authenticated', c.oid, 'INSERT')
+        or has_table_privilege('authenticated', c.oid, 'UPDATE')
+        or has_table_privilege('authenticated', c.oid, 'DELETE')
+      )
+    order by table_name;
+  `);
+  assert.deepEqual(
+    clientTables.rows,
+    [],
+    "public product tables must remain server-only",
+  );
+
+  const clientSequences = await query<{ sequence_name: string }>(`
+    select c.relname as sequence_name
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind = 'S'
+      and (
+        has_sequence_privilege('anon', c.oid, 'USAGE')
+        or has_sequence_privilege('anon', c.oid, 'SELECT')
+        or has_sequence_privilege('anon', c.oid, 'UPDATE')
+        or has_sequence_privilege('authenticated', c.oid, 'USAGE')
+        or has_sequence_privilege('authenticated', c.oid, 'SELECT')
+        or has_sequence_privilege('authenticated', c.oid, 'UPDATE')
+      )
+    order by sequence_name;
+  `);
+  assert.deepEqual(
+    clientSequences.rows,
+    [],
+    "public product sequences must remain server-only",
+  );
+}
+
 async function main(): Promise<void> {
   const ownerA = randomUUID();
   const ownerB = randomUUID();
@@ -116,6 +218,8 @@ async function main(): Promise<void> {
   const revision = `rev-${run}`;
   const idempotencyKey = `idem-${run}`;
   const requestHash = `hash-${run}`;
+
+  await assertWorkerRpcPrivileges();
 
   await createUser(ownerA, `${run}-a@example.test`);
   await createUser(ownerB, `${run}-b@example.test`);

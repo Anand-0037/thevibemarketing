@@ -2,9 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@remotion/bundler@4.0.495'
   - '@remotion/canvas-capture@4.0.495'

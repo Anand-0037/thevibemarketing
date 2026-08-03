@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "node:crypto";
 import { getSupabaseAdmin, hasSupabaseAdmin } from "@/lib/supabase-admin";
+import { authorizeWorkerRequest } from "@/lib/internal-worker-auth";
 import { MarketingStoreError } from "@/lib/marketing-store";
 
 export const runtime = "nodejs";
@@ -27,30 +27,6 @@ function parseStatus(raw: unknown): string {
   return String(raw ?? "");
 }
 
-function getWorkerSecret(): string {
-  return process.env.INTERNAL_WORKER_SECRET?.trim() || "";
-}
-
-function getProvidedSecret(req: Request): string {
-  const header = req.headers.get("x-internal-secret");
-  if (header) return header.trim();
-
-  const auth = req.headers.get("authorization");
-  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
-
-  const query = new URL(req.url).searchParams.get("secret");
-  if (query) return query.trim();
-
-  return "";
-}
-
-function secretsMatch(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const hashA = createHash("sha256").update(a).digest();
-  const hashB = createHash("sha256").update(b).digest();
-  return timingSafeEqual(hashA, hashB);
-}
-
 function unauthorized(message: string, status = 401) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -73,14 +49,13 @@ function inc(map: Record<string, number>, key: string) {
 }
 
 export async function GET(req: Request) {
-  const configured = getWorkerSecret();
-  if (!configured) {
-    return unauthorized("INTERNAL_WORKER_SECRET is not configured", 401);
-  }
-
-  const provided = getProvidedSecret(req);
-  if (!provided || !secretsMatch(provided, configured)) {
-    return unauthorized("Invalid internal worker secret", 401);
+  const authorization = authorizeWorkerRequest(
+    req,
+    "internal",
+    process.env.INTERNAL_WORKER_SECRET,
+  );
+  if (!authorization.ok) {
+    return unauthorized(authorization.error, authorization.status);
   }
 
   const sb = ensureDb();

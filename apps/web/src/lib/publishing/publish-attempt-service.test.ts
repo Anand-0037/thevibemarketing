@@ -25,7 +25,7 @@ import { MarketingStoreError, getMarketingStore } from "../marketing-store";
 import { runWithWorkspaceOwner } from "../workspace-context";
 import type { MarketingPublishResult } from "@vibe/engine";
 import { writableDataPath } from "../paths";
-import type { Post } from "../marketing-store";
+import type { Platform, Post } from "../marketing-store";
 
 process.env.MARKETING_STORE_BACKEND = "local";
 
@@ -47,7 +47,7 @@ function ownerPath(ownerId: string): string {
 }
 
 function buildPostRevisionSignature(post: {
-  platform: Post["platform"];
+  platform: Platform;
   title: string | null | undefined;
   body: string;
   rationale: string;
@@ -160,7 +160,7 @@ class InMemoryPublishAttemptRepository implements PublishAttemptLikeRepository {
         owner_id: opts.ownerId,
         post_id: opts.postId,
         content_revision_key: opts.contentRevisionKey,
-        provider: opts.provider as Post["platform"],
+        provider: opts.provider as PublishAttempt["provider"],
         provider_account_id: opts.providerAccountId,
         idempotency_key: opts.idempotencyKey,
         request_hash: opts.requestHash,
@@ -1086,14 +1086,9 @@ async function clearOwner(ownerId: string): Promise<void> {
           },
         ),
       );
-      const byQueryPayload = (await byQuery.json()) as {
-        processed: number;
-        claimed: number;
-        skipped: number;
-        errors: number;
-      };
-      assert.equal(byQuery.status, 200);
-      assert.equal(typeof byQueryPayload.processed, "number");
+      const byQueryPayload = (await byQuery.json()) as { error?: string };
+      assert.equal(byQuery.status, 401);
+      assert.equal(byQueryPayload.error, "Invalid internal worker secret");
 
       const ok = await drainRoutePost(
         new Request("https://example.test/api/internal/publishing/drain", {
